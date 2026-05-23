@@ -406,6 +406,39 @@ def ids_add_entry(file_id):
 
 
 # ══════════════════════════════════════════════════════════════════
+# NIDS — Configuration
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/ids/nids')
+def ids_nids():
+    from modules import module1_collector as m1
+    from scapy.all import get_if_list
+
+    ifaces = get_if_list()
+    all_ifaces = [{'name': i, 'active': i not in ('lo', 'lo0')} for i in ifaces]
+    available = [i for i in ifaces if i not in ('lo', 'lo0')]
+    selected = m1.sniffer_status.get('interface', 'any')
+
+    # Compter les règles NIDS
+    with open(os.path.join(BASE_DIR, 'nids_rules.conf')) as f:
+        rules_count = len([l for l in f if l.strip() and not l.startswith('#')])
+
+    return render_template('ids_nids_settings.html',
+        available_interfaces=available,
+        selected_interface=selected,
+        all_interfaces=all_ifaces,
+        status=m1.sniffer_status,
+        nids_rules_count=rules_count)
+
+@app.route('/ids/nids/set_interface', methods=['POST'])
+def ids_nids_set_interface():
+    interface = request.form.get('interface', 'any')
+    from modules import module1_collector as m1
+    m1.sniffer_status['interface'] = interface
+    flash(f"Interface NIDS changée : {interface}", 'success')
+    return redirect(url_for('ids_nids'))
+
+# ══════════════════════════════════════════════════════════════════
 # INTRUSIONS
 # ══════════════════════════════════════════════════════════════════
 
@@ -623,31 +656,23 @@ def _load_policy_direct_helper(flask_app):
         policies = AccessPolicy.query.filter_by(active=True).all()
         return [
             {'username':   p.user.username, 'resource': p.resource.name,
-             'task': p.task, 'start_date': p.start_date, 'end_date': p.end_date}
+             'task': p.task, 'policy_type': p.policy_type,
+             'start_date': p.start_date, 'end_date': p.end_date}
             for p in policies
         ]
 
 
-if __name__ != '__main__':
-    with app.app_context():
-        db.create_all()
-        _seed()
-        # Export policy.conf si absent
-        from modules import module3_policy as _m3
-        if not os.path.exists(_m3.POLICY_FILE):
-            _m3.export_to_file(app)
+with app.app_context():
+    db.create_all()
+    _seed()
+    # Export policy.conf si absent
+    from modules import module3_policy as _m3
+    if not os.path.exists(_m3.POLICY_FILE):
+        _m3.export_to_file(app)
+    # Injecter le helper dans module3 (important pour /ids/run et autres routes)
+    _m3._load_policy_direct = _load_policy_direct_helper
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        _seed()
-        from modules import module3_policy as _m3
-        if not os.path.exists(_m3.POLICY_FILE):
-            _m3.export_to_file(app)
-        # Injecter le helper dans module3
-        _m3._load_policy_direct = _load_policy_direct_helper
-
     # Démarrer les 4 modules
     _start_modules()
-
     app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)

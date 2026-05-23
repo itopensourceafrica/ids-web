@@ -596,7 +596,7 @@
     </div>
 
     <!-- Dropdown : Configuration -->
-    {% set config_active = p in ('/ids/users', '/ids/resources', '/ids/settings') or p.startswith('/ids/policy') %}
+    {% set config_active = p in ('/ids/users', '/ids/resources', '/ids/settings', '/ids/nids') or p.startswith('/ids/policy') %}
     <div class="nav-dd">
       <span class="nl {{ 'active' if config_active }}">
         <i class="fas fa-sliders ico"></i> Config <i class="fas fa-chevron-down caret"></i>
@@ -606,6 +606,7 @@
         <a href="/ids/resources" class="{{ 'active' if p == '/ids/resources' }}"><i class="fas fa-server"></i> Ressources</a>
         <a href="/ids/policy"    class="{{ 'active' if p.startswith('/ids/policy') }}"><i class="fas fa-lock"></i> Politique</a>
         <div class="nav-dd-sep"></div>
+        <a href="/ids/nids"      class="{{ 'active' if p == '/ids/nids' }}"><i class="fas fa-broadcast-tower"></i> NIDS Réseau</a>
         <a href="/ids/settings"  class="{{ 'active' if p == '/ids/settings' }}"><i class="fas fa-gear"></i> Paramètres</a>
       </div>
     </div>

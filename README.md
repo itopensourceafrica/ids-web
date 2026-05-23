@@ -12,6 +12,7 @@ Plateforme de détection d'intrusions modulaire, développée en Python/Flask. E
 - [Structure du projet](#structure-du-projet)
 - [Les 4 modules](#les-4-modules)
 - [Sources de données](#sources-de-données)
+- [Éléments surveillés — Liste complète](#éléments-surveillés--liste-complète)
 - [Logique de détection](#logique-de-détection)
 - [Types de violations](#types-de-violations)
 - [Format policy.conf](#format-policyconf)
@@ -244,6 +245,136 @@ Calcule le condensat SHA-256 des fichiers critiques (`/etc/passwd`, `/etc/shadow
 ### Surveillance des processus (psutil)
 
 Détecte l'apparition de nouveaux processus dont le nom ou la ligne de commande correspond à une liste d'outils offensifs connus (97 outils répertoriés : nmap, hydra, netcat, mimikatz, sqlmap, xmrig, etc.).
+
+---
+
+## Éléments surveillés — Liste complète
+
+### HIDS — Host-based Intrusion Detection
+
+#### 1. Authentification Linux (`/var/log/auth.log`)
+- **SSH logins** — réussis et échoués
+- **Sudo commands** — avec utilisateur et commande exécutée
+- **Su transitions** — changements d'utilisateur
+- **PAM events** — sessions console et locales
+- **Brute force** — 5+ tentatives échouées en 60s
+
+#### 2. Auditd — Appels système (11 règles)
+- **Exécutions root** : `execve` avec `euid=0` — toutes les commandes lancées en tant que root
+- **Fichiers critiques** (lectures, écritures, suppressions) :
+  - `/etc/passwd` — base utilisateurs
+  - `/etc/shadow` — mots de passe hachés
+  - `/etc/sudoers` — permissions sudo
+  - `/etc/ssh/sshd_config` — configuration SSH
+  - `/etc/crontab` — tâches planifiées
+  - `/etc/hosts` — résolutions DNS locales
+  - `/etc/pam.d/common-auth` — authentification système
+- **Gestion des utilisateurs** :
+  - `useradd`, `userdel`, `usermod` — création/suppression/modification
+  - `passwd` — changements de mots de passe
+  - `chauthtok` — modifications d'authentification
+- **Connexions réseau sortantes** — deprecated (trop bruyant)
+
+#### 3. Intégrité fichiers — SHA-256 (baseline 30s)
+Les 7 fichiers critiques sont hachés toutes les 30 secondes et comparés. Toute modification génère immédiatement une intrusion :
+- `/etc/passwd`, `/etc/shadow`, `/etc/sudoers`, `/etc/ssh/sshd_config`, `/etc/crontab`, `/etc/hosts`, `/etc/pam.d/common-auth`
+
+#### 4. Surveillance processus — 97+ outils offensifs détectés
+
+**Shells alternatifs :** bash, sh, zsh, ksh, tcsh, csh, busybox, ash, mksh
+
+**Reconnaissance réseau :** nc, ncat, netcat, socat, nmap, netstat, ss, arp, whois, dig, nslookup, host, traceroute, mtr, hping3, tcpdump, strace, dtrace, ltrace
+
+**Transfert de fichiers :** wget, curl, scp, sftp, rsync, ftp, lftp, rclone
+
+**Scripting & interprétation :** python, python2, python3, perl, ruby, php, node, npm, go, rust, java, javac
+
+**Exploitation :** metasploit, meterpreter, empire, mimikatz, hashcat, john, aircrack, sqlmap, nikto, burp, zaproxy, commix
+
+**Monitoring système :** ps, top, htop, iotop, nethogs, lsof, ss, netstat
+
+**Autres outils suspects :** screen, tmux, expect, telnet, openssl, ssl_client
+
+### NIDS — Network-based Intrusion Detection
+
+#### 1. Détection port scan
+- **Seuil** : ≥ 15 ports distincts contactés en 60 secondes
+- **Fenêtre glissante** : port SYN non répondu = port différent comptabilisé
+- **Source** : adresse IP source unique
+
+#### 2. Ports dangereux surveillés
+| Port | Protocole | Service | Risque |
+|------|-----------|---------|--------|
+| 23 | TCP | Telnet | Authentification en clair |
+| 3306 | TCP | MySQL | Base de données exposée |
+| 5432 | TCP | PostgreSQL | Base de données exposée |
+| 1433 | TCP | MSSQL | Serveur SQL Microsoft exposé |
+| 445 | TCP | SMB | Partage Windows exploitable |
+| 139 | TCP | NetBIOS | Partage ancienne génération |
+| 3389 | TCP | RDP | Bureau à distance |
+| 21 | TCP | FTP | Transfert en clair |
+| 25, 587 | TCP | SMTP | Messagerie |
+| 4444, 1337, 6666, 9001 | TCP | Divers | Proxies, C2, accès non autorisé |
+
+#### 3. Signatures payload — Injection & traversée
+Le moteur cherche des patterns suspects dans le contenu des paquets (insensible à la casse) :
+
+**SQL Injection :** SELECT, UNION, DROP, INSERT, UPDATE, DELETE, EXEC, script, FROM, WHERE, LIKE, OR, AND
+
+**XSS (Cross-Site Scripting) :** `<script>`, `onerror=`, `onclick=`, `onload=`, `onmouseover=`, `javascript:`, `<iframe>`
+
+**Path Traversal :** `../`, `..\\`, `%2e%2e`, `....`, `%252e`
+
+**Shell Injection :** `;`, `|`, `||`, `&&`, `` ` ``, `$()`, `/bin/sh`, `/bin/bash`
+
+**Buffer Overflow :** patterns de padding excessif, offsets suspects
+
+**Command Injection :** metacharacters shell, redirection
+
+#### 4. Extraction SNI TLS
+- **Objectif** : lire le domaine de destination sans déchiffrer
+- **Technique** : parse du `ClientHello` (TLS handshake initial)
+- **Cas détectés** : `.onion` (Tor), `ngrok.io`, `pastebin.com`, `webhook.site`, domaines C2 connus
+
+#### 5. Suivi TCP session
+- **Clé** : `(IP source, IP destination, port destination)`
+- **Durée** : jusqu'à FIN/RST ou timeout 30 min
+- **Déduplication** : une même session ne génère qu'une alerte toutes les 60s
+
+### Contrôle d'accès — Tâches surveillées (Politique Allow/Deny)
+
+Le système fonctionne en **deny-by-default** avec accumulation cumulative de droits :
+
+1. **read** — Lecture fichiers, consultation données
+2. **write** — Écriture, modification, création
+3. **delete** — Suppression, destruction
+4. **execute** — Exécution de commandes, scripts, binaires
+5. **admin** — Commandes administrateur, configuration système
+6. **login** — Authentification SSH, console, connexion
+7. **failed_login** — Tentatives échouées (brute force tracker)
+8. **backup** — Opérations de sauvegarde
+9. **network_access** — Connexions réseau (NIDS)
+
+**Exemple cumul droits :**
+```
+alice;database;allow;read;2026-01-01;2026-12-31;1
+alice;database;allow;write;2026-01-01;2026-12-31;1
+alice;database;deny;delete;2026-01-01;2026-12-31;1
+
+→ alice a : read + write, mais PAS delete
+```
+
+### Ressources protégées
+
+| Ressource | Domaine | Déclencheur |
+|---|---|---|
+| `ssh_server` | HIDS | Connexions SSH sshd |
+| `file_system` | HIDS | Accès fichiers critiques |
+| `user_management` | HIDS | useradd, userdel, passwd |
+| `database` | HIDS | mysql, psql, sqlite3 |
+| `backup` | HIDS | Sauvegarde, restauration |
+| `network_access` | NIDS | Connexions réseau |
+| `web_server` | HIDS | Processus nginx, apache |
 
 ---
 

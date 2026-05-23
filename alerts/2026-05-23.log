@@ -883,3 +883,635 @@ INTRUSION DÉTECTÉE
   Type        : user_unknown
   Ligne brute : type=USER_AUTH msg=audit(1779526545.799:4520): pid=43358 uid=0 auid=1000 ses=3 subj=unconfined msg='
 ═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:00:54
+  Source      : process_monitor
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : PROCESSUS SUSPECT: bash (pid=44245) cmd=/bin/bash -c source /home/roberto/.claude/shell-snapshots/sn
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:01:19
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:01:19
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779526879.668:4613): pid=44355 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:01:19
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Brute force détecté : 5 tentatives échouées en 60s pour 'roberto'
+  Type        : brute_force
+  Ligne brute : type=USER_AUTH msg=audit(1779526879.668:4613): pid=44355 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:32 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:01:19
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779526879.715:4616): pid=44356 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:32 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:01:19
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779526879.760:4619): pid=44357 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:32 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:01:19
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779526879.896:4622): pid=44360 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:32 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:05:29
+  Source      : process_monitor
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : PROCESSUS SUSPECT: bash (pid=45153) cmd=/bin/bash -c source /home/roberto/.claude/shell-snapshots/sn
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:06:32 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:05:29
+  Source      : process_monitor
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : PROCESSUS SUSPECT: python3 (pid=45173) cmd=python3 -c 
+import sys
+sys.path.insert(0, '/home/roberto/
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:13:34 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:13:34
+  Source      : process_monitor
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : PROCESSUS SUSPECT: bash (pid=46658) cmd=/bin/bash -c source /home/roberto/.claude/shell-snapshots/sn
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:13:34 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:13:34
+  Source      : process_monitor
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : PROCESSUS SUSPECT: python3 (pid=46678) cmd=python3 -c import app; print('✓ app.py compile correcteme
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:30:41 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:30:40
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:30:41 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:30:40
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:30:41 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:30:40
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779528640.421:5167): pid=49544 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:46:52 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:46:50
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779529610.934:712): pid=7869 uid=1000 auid=1000 ses=3 subj=unconfined msg=
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:46:52 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:46:50
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:46:52 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:46:50
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:39 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:56:37
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:39 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:56:37
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:39 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:56:37
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779530197.640:934): pid=9576 uid=1000 auid=1000 ses=3 subj=unconfined msg=
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:45 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:56:44
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:45 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:56:44
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779530204.297:939): pid=9588 uid=1000 auid=1000 ses=3 subj=unconfined msg=
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:48 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:56:47
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:48 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:56:47
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Brute force détecté : 5 tentatives échouées en 60s pour 'roberto'
+  Type        : brute_force
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:48 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:56:47
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:56:51 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:56:47
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779530207.501:942): pid=9588 uid=1000 auid=1000 ses=3 subj=unconfined msg=
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:59:54 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 10:59:53
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779530393.500:1020): pid=10175 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:59:54 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:59:53
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 09:59:54 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 09:59:53
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 10:03:18 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 11:03:15
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779530595.360:1097): pid=10852 uid=0 auid=1000 ses=2 subj=unconfined msg='
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 10:03:18 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 10:03:15
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 10:29:10 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 10:29:08
+  Source      : process_monitor
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : PROCESSUS SUSPECT: bash (pid=14839) cmd=/bin/bash -c source /home/roberto/.claude/shell-snapshots/sn
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 10:29:10 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 10:29:08
+  Source      : process_monitor
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : PROCESSUS SUSPECT: python3 (pid=14859) cmd=python3 -c import app; print('✓ app ok')
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 12:16:00 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 12:15:57
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'failed_login' sur 'ssh_server'
+  Type        : unauthorized_access
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 12:16:00 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 13:15:57
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1779538557.118:1944): pid=17597 uid=0 auid=1000 ses=2 subj=unconfined msg='
+═══════════════════════════════════════════════════════

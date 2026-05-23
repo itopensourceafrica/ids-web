@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="pg-head a1">
+  <div><div class="pg-title">Configuration NIDS</div><div class="pg-sub">Capture réseau et détection d'intrusions</div></div>
+</div>
+
+<div class="two-col" style="grid-template-columns:400px 1fr">
+  <div class="a2">
+    <div class="card">
+      <div class="card-header"><h6>Interface réseau</h6></div>
+      <div class="card-body">
+        <form method="POST" action="/ids/nids/set_interface">
+          <div class="f-group">
+            <label class="f-label">Sélectionner interface</label>
+            <select name="interface" class="f-select" required>
+              <option value="any">Toutes les interfaces (any)</option>
+              {% for iface in available_interfaces %}
+                <option value="{{ iface }}" {% if iface == selected_interface %}selected{% endif %}>
+                  {{ iface }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full mt-2">
+            <i class="fas fa-refresh"></i> Appliquer
+          </button>
+        </form>
+        <hr style="margin:18px 0; opacity:.2">
+        <div style="font-size:12px; color:var(--text-3); line-height:1.8">
+          <p><strong>any</strong> — Capture sur toutes les interfaces (recommandé)</p>
+          <p style="margin-top:8px"><strong>Interface spécifique</strong> — Ne capture que sur cette interface (wlp2s0, enp0s31f6, etc.)</p>
+          <p style="margin-top:12px; color:var(--blue)">💡 Pour capturer le trafic de votre machine locale, utilisez <strong>any</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="a3">
+    <div class="card">
+      <div class="card-header"><h6>État NIDS</h6></div>
+      <div class="card-body">
+        <div style="display:grid; gap:12px">
+          <div>
+            <div style="font-size:12px; color:var(--text-3); margin-bottom:4px">Statut</div>
+            <div class="badge badge-{{ 'ok' if status.active else 'gray' }}">
+              {{ '✓ Actif' if status.active else '✗ Inactif' }}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size:12px; color:var(--text-3); margin-bottom:4px">Paquets capturés</div>
+            <div style="font-size:18px; font-weight:600; color:var(--blue)">{{ status.packets_captured }}</div>
+          </div>
+
+          <div>
+            <div style="font-size:12px; color:var(--text-3); margin-bottom:4px">Interface</div>
+            <code style="display:block; padding:8px; background:var(--bg-2); border-radius:4px; font-size:12px">
+              {{ status.interface or 'N/A' }}
+            </code>
+          </div>
+
+          <div>
+            <div style="font-size:12px; color:var(--text-3); margin-bottom:4px">Règles NIDS chargées</div>
+            <div style="font-size:16px; font-weight:600; color:var(--green)">{{ nids_rules_count }}</div>
+          </div>
+
+          {% if status.error %}
+            <div style="padding:12px; background:var(--red-s); border-left:3px solid var(--red); border-radius:4px; color:var(--red)">
+              <strong>Erreur :</strong> {{ status.error }}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card a2" style="margin-top:20px">
+  <div class="card-header"><h6>Interfaces réseau disponibles</h6></div>
+  <div class="card-body">
+    <table class="tbl" style="width:100%">
+      <thead>
+        <tr><th>Nom</th><th>État</th><th>Type</th></tr>
+      </thead>
+      <tbody>
+        {% for iface in all_interfaces %}
+          <tr>
+            <td><code>{{ iface.name }}</code></td>
+            <td>
+              <span class="badge badge-{{ 'ok' if iface.active else 'gray' }}">
+                {{ 'Actif' if iface.active else 'Inactif' }}
+              </span>
+            </td>
+            <td style="font-size:12px; color:var(--text-3)">
+              {% if iface.name.startswith('lo') %}
+                Loopback
+              {% elif iface.name.startswith('docker') %}
+                Docker
+              {% elif iface.name.startswith('wl') %}
+                WiFi
+              {% elif iface.name.startswith('en') or iface.name.startswith('eth') %}
+                Ethernet
+              {% else %}
+                Autre
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

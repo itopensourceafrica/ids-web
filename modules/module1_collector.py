@@ -829,15 +829,103 @@ def _apply_rules(src: str, dst: str, port: int, proto: str,
 
 # ── Thread de capture ────────────────────────────────────────────────────────
 class NetworkCapture(threading.Thread):
-    """Capture les paquets IP et applique le moteur de règles NIDS."""
+    """Capture les paquets IP et applique le moteur de règles NIDS.
+
+    Lance un thread sniff par interface (y compris lo) pour capturer
+    TOUT le trafic, qu'il soit local (loopback) ou externe.
+    """
 
     def __init__(self):
         super().__init__(daemon=True, name='NetworkCapture')
         self._count = 0
+        self._rules_mtime = 0
+        self._pkt_count = 0
+        self._lock = threading.Lock()
+
+    def _handle(self, pkt):
+        """Callback partagé entre tous les threads sniff."""
+        try:
+            from scapy.all import IP, TCP, UDP, Raw
+        except ImportError:
+            return
+
+        with self._lock:
+            self._pkt_count += 1
+
+        # Debug : afficher les 10 premiers paquets reçus
+        if self._pkt_count <= 10:
+            try:
+                print(f'[MODULE 1] NIDS RAW pkt#{self._pkt_count}: {pkt.summary()[:100]}',
+                      file=sys.stderr)
+            except:
+                pass
+
+        if IP not in pkt:
+            return
+
+        src = pkt[IP].src
+        dst = pkt[IP].dst
+
+        # Filtrer le trafic purement loopback (127.0.0.1 ↔ 127.0.0.1)
+        # MAIS accepter les paquets vers/depuis la vraie IP même via lo
+        if src == '127.0.0.1' and dst == '127.0.0.1':
+            return
+
+        with self._lock:
+            self._count += 1
+            sniffer_status['packets_captured'] = self._count
+
+        if self._count <= 20:
+            print(f'[MODULE 1] NIDS DEBUG pkt#{self._count}: {src} → {dst}',
+                  file=sys.stderr)
+
+        # Hot reload des règles toutes les 500 paquets
+        if self._count % 500 == 0:
+            try:
+                mt = os.path.getmtime(NIDS_RULES_FILE)
+                if mt != self._rules_mtime:
+                    self._rules_mtime = mt
+                    _load_nids_rules()
+                    print(f'[MODULE 1] NIDS: règles rechargées', file=sys.stderr)
+            except Exception:
+                pass
+
+        port  = 0
+        proto = 'OTHER'
+        flags = 0
+        raw_payload = b''
+
+        if TCP in pkt:
+            proto = 'TCP'
+            port  = pkt[TCP].dport
+            flags = int(pkt[TCP].flags)
+            if Raw in pkt:
+                raw_payload = bytes(pkt[Raw].load)
+        elif UDP in pkt:
+            proto = 'UDP'
+            port  = pkt[UDP].dport
+            if Raw in pkt:
+                raw_payload = bytes(pkt[Raw].load)
+
+        # Ignorer les ports Flask
+        if port in (5000, 5001):
+            return
+
+        _apply_rules(src, dst, port, proto, raw_payload, flags)
+
+    def _sniff_iface(self, iface):
+        """Lance sniff() sur une interface spécifique (thread dédié)."""
+        try:
+            from scapy.all import sniff
+            print(f'[MODULE 1] NIDS: sniff démarré sur {iface}', file=sys.stderr)
+            sniff(iface=iface, prn=self._handle, store=False)
+        except Exception as e:
+            print(f'[MODULE 1] NIDS ERROR sur {iface}: {e}', file=sys.stderr)
+            status['errors'].append(f'NetworkCapture({iface}): {e}')
 
     def run(self):
         try:
-            from scapy.all import sniff, IP, TCP, UDP, Raw
+            from scapy.all import sniff, IP, TCP, UDP, Raw, get_if_list
         except ImportError:
             sniffer_status['error'] = 'scapy non installé (pip install scapy)'
             status['errors'].append('NetworkCapture: pip install scapy')
@@ -852,66 +940,40 @@ class NetworkCapture(threading.Thread):
         n = _load_nids_rules()
         print(f'[MODULE 1] NIDS: {n} règles chargées depuis {NIDS_RULES_FILE}',
               file=sys.stderr)
+        self._rules_mtime = os.path.getmtime(NIDS_RULES_FILE)
 
+        # Lister TOUTES les interfaces (y compris lo)
+        try:
+            all_ifaces = get_if_list()
+        except Exception as e:
+            sniffer_status['error'] = f'get_if_list: {e}'
+            return
+
+        if not all_ifaces:
+            sniffer_status['error'] = 'Aucune interface disponible'
+            print(f'[MODULE 1] NIDS: aucune interface', file=sys.stderr)
+            return
+
+        sniffer_status['interface'] = ','.join(all_ifaces)
         sniffer_status['active']     = True
         sniffer_status['error']      = None
         sniffer_status['started_at'] = datetime.utcnow()
         status['sources'].append('Réseau NIDS (scapy)')
 
-        # Surveiller nids_rules.conf pour rechargement à chaud
-        rules_mtime = os.path.getmtime(NIDS_RULES_FILE)
+        print(f'[MODULE 1] NIDS: interfaces détectées = {all_ifaces}', file=sys.stderr)
 
-        def handle(pkt):
-            nonlocal rules_mtime
-            if IP not in pkt:
-                return
+        # Lancer un thread sniff par interface
+        threads = []
+        for iface in all_ifaces:
+            t = threading.Thread(target=self._sniff_iface, args=(iface,),
+                                 daemon=True, name=f'sniff-{iface}')
+            t.start()
+            threads.append(t)
+            print(f'[MODULE 1] NIDS: thread démarré pour {iface}', file=sys.stderr)
 
-            self._count += 1
-            sniffer_status['packets_captured'] = self._count
-
-            # Hot reload des règles
-            if self._count % 500 == 0:
-                try:
-                    mt = os.path.getmtime(NIDS_RULES_FILE)
-                    if mt != rules_mtime:
-                        rules_mtime = mt
-                        _load_nids_rules()
-                        print(f'[MODULE 1] NIDS: règles rechargées', file=sys.stderr)
-                except Exception:
-                    pass
-
-            src   = pkt[IP].src
-            dst   = pkt[IP].dst
-            port  = 0
-            proto = 'OTHER'
-            flags = 0
-            raw_payload = b''
-
-            if TCP in pkt:
-                proto = 'TCP'
-                port  = pkt[TCP].dport
-                flags = int(pkt[TCP].flags)
-                if Raw in pkt:
-                    raw_payload = bytes(pkt[Raw].load)
-            elif UDP in pkt:
-                proto = 'UDP'
-                port  = pkt[UDP].dport
-                if Raw in pkt:
-                    raw_payload = bytes(pkt[Raw].load)
-
-            # Ignorer les ports Flask et loopback déjà filtrés par BPF
-            if port in (5000, 5001):
-                return
-
-            _apply_rules(src, dst, port, proto, raw_payload, flags)
-
-        try:
-            sniff(prn=handle, store=False,
-                  filter='ip and not (src host 127.0.0.1 or dst host 127.0.0.1)')
-        except Exception as e:
-            sniffer_status['active'] = False
-            sniffer_status['error']  = str(e)
-            status['errors'].append(f'NetworkCapture: {e}')
+        # Attendre indéfiniment (les threads sont daemon)
+        for t in threads:
+            t.join()
 
 
 # ════════════════════════════════════════════════════════════════════════════
