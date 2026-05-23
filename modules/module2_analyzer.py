@@ -85,6 +85,7 @@ def _load_policy(app):
                 'username':   p.user.username,
                 'resource':   p.resource.name,
                 'task':       p.task,
+                'policy_type': p.policy_type,  # 'allow' ou 'deny'
                 'start_date': p.start_date,
                 'end_date':   p.end_date,
             }
@@ -94,7 +95,8 @@ def _load_policy(app):
 
 def _check_event(event: dict, policies: list) -> dict | None:
     """
-    Vérifie si un événement viole la politique.
+    Vérifie si un événement viole la politique avec système allow/deny cumulatif.
+    Logique : deny-by-default, accumulation de droits via rules allow/deny.
     Retourne un dict de violation ou None si l'accès est autorisé.
     """
     username = event.get('username', '')
@@ -138,46 +140,34 @@ def _check_event(event: dict, policies: list) -> dict | None:
             'severity': 'critical',
         }
 
-    # Trouver les règles pour (user, resource, task)
-    matching_rules = [
-        p for p in user_rules
-        if p['resource'] == resource and p['task'] == task
-    ]
+    # ═══ Logique allow/deny cumulative ═══
+    # Commencer avec aucune tâche autorisée (deny-by-default)
+    allowed_tasks = set()
 
-    if not matching_rules:
+    # Appliquer les rules allow/deny pour (user, resource)
+    applicable_rules = [p for p in user_rules if p['resource'] == resource]
+
+    for rule in applicable_rules:
+        # Vérifier si la règle s'applique à cette date/heure
+        if not (rule['start_date'] <= exec_date <= rule['end_date']):
+            continue  # Règle hors plage temporelle
+
+        rule_task = rule['task']
+        if rule['policy_type'] == 'allow':
+            allowed_tasks.add(rule_task)
+        elif rule['policy_type'] == 'deny':
+            allowed_tasks.discard(rule_task)
+
+    # Vérifier si la tâche demandée est autorisée
+    if task not in allowed_tasks:
         return {
             'type':    'unauthorized_access',
-            'message': (f"Aucune règle n'autorise '{username}' à effectuer "
+            'message': (f"Utilisateur '{username}' n'a pas le droit d'effectuer "
                         f"'{task}' sur '{resource}'"),
             'severity': 'critical',
         }
 
-    # Vérifier la plage de dates ET d'heures
-    for rule in matching_rules:
-        if rule['start_date'] <= exec_date <= rule['end_date']:
-            return None  # Accès autorisé
-
-    # Déterminer si c'est une violation de date ou d'heure
-    best = matching_rules[0]
-    start, end = best['start_date'], best['end_date']
-
-    # Même jour mais heure différente → violation horaire
-    if start.date() <= exec_date.date() <= end.date():
-        violation_msg = (
-            f"Accès de '{username}' hors de la plage horaire autorisée "
-            f"({start.strftime('%H:%M')} → {end.strftime('%H:%M')}) "
-            f"— heure d'accès : {exec_date.strftime('%H:%M')}"
-        )
-        vtype = 'time_violation'
-    else:
-        violation_msg = (
-            f"Accès de '{username}' hors de la plage autorisée "
-            f"({start.date()} → {end.date()}) "
-            f"— date d'exécution : {exec_date.date()}"
-        )
-        vtype = 'date_violation'
-
-    return {'type': vtype, 'message': violation_msg, 'severity': 'high'}
+    return None  # Accès autorisé
 
 
 def _process_file(filepath: str, cursor: dict, policies: list, app) -> int:

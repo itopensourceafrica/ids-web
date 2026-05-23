@@ -582,33 +582,16 @@
 
     <div class="nav-div"></div>
 
-    <!-- Dropdown : Réseau -->
-    {% set réseau_active = p in ('/', '/events', '/rules', '/alerts') %}
-    <div class="nav-dd">
-      <span class="nl {{ 'active' if p in ('/events', '/rules') }}">
-        <i class="fas fa-network-wired ico"></i> Réseau <i class="fas fa-chevron-down caret"></i>
-      </span>
-      <div class="nav-dd-menu">
-        <a href="/events"       class="{{ 'active' if p == '/events' }}"><i class="fas fa-list-ul"></i> Événements</a>
-        <a href="/alerts"       class="{{ 'active' if p == '/alerts' }}"><i class="fas fa-bell"></i> Alertes</a>
-        <div class="nav-dd-sep"></div>
-        <a href="/rules"        class="{{ 'active' if p == '/rules' }}"><i class="fas fa-filter"></i> Règles</a>
-      </div>
-    </div>
-
     <!-- Dropdown : Analyse -->
-    {% set analyse_active = p in ('/ids', '/ids/monitoring', '/ids/scenario', '/ids/intrusions') %}
+    {% set analyse_active = p in ('/ids', '/ids/monitoring', '/ids/files') or p.startswith('/ids/files') %}
     <div class="nav-dd">
       <span class="nl {{ 'active' if analyse_active }}">
         <i class="fas fa-magnifying-glass ico"></i> Analyse <i class="fas fa-chevron-down caret"></i>
       </span>
       <div class="nav-dd-menu">
         <a href="/ids"              class="{{ 'active' if p == '/ids' }}"><i class="fas fa-play-circle"></i> Moteur</a>
-        <a href="/ids/intrusions"   class="{{ 'active' if p == '/ids/intrusions' }}"><i class="fas fa-bug"></i> Intrusions</a>
         <a href="/ids/monitoring"   class="{{ 'active' if p == '/ids/monitoring' }}"><i class="fas fa-tower-broadcast"></i> Monitoring</a>
-        <div class="nav-dd-sep"></div>
-        <a href="/ids/files"        class="{{ 'active' if p == '/ids/files' }}"><i class="fas fa-folder"></i> Fichiers</a>
-        <a href="/ids/scenario"     class="{{ 'active' if p == '/ids/scenario' }}"><i class="fas fa-flask"></i> Scénario</a>
+        <a href="/ids/files"        class="{{ 'active' if p.startswith('/ids/files') }}"><i class="fas fa-folder"></i> Fichiers</a>
       </div>
     </div>
 
@@ -632,7 +615,6 @@
         <div class="status-dot"></div>
         <span class="status-text">Actif</span>
       </div>
-      <a href="/create_event" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Événement</a>
     </div>
   </div>
 </nav>

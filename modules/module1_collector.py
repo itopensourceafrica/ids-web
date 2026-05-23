@@ -58,10 +58,11 @@ logwatcher_status = {
     'started_at':      None,
 }
 
-SYSTEM = platform.system()  # 'Linux', 'Windows', 'Darwin'
+BASE_DIR   = os.path.dirname(os.path.dirname(__file__))
+SYSTEM     = platform.system()  # 'Linux', 'Windows', 'Darwin'
 
 # ── Répertoire de sortie ─────────────────────────────────────────────────────
-EVENTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'events')
+EVENTS_DIR = os.path.join(BASE_DIR, 'events')
 
 # ── Fichiers Linux surveillés ────────────────────────────────────────────────
 LINUX_LOG_CANDIDATES = [
@@ -79,7 +80,7 @@ INTEGRITY_FILES = {
                 'C:\\Windows\\System32\\config\\SAM'],
 }
 
-INTEGRITY_CONF = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ids_integrity.conf')
+INTEGRITY_CONF = os.path.join(BASE_DIR, 'ids_integrity.conf')
 
 def _load_integrity_targets() -> list:
     """Load integrity targets from ids_integrity.conf if present, else use defaults."""

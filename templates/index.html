@@ -4,17 +4,16 @@
 <div class="pg-head a1">
   <div>
     <div class="pg-title">Tableau de Bord</div>
-    <div class="pg-sub">Vue d'ensemble — menaces réseau et intrusions comportementales</div>
+    <div class="pg-sub">Vue d'ensemble — détection HIDS et NIDS en temps réel</div>
   </div>
   <div class="flex items gap-2">
     <a href="/ids/monitoring" class="btn btn-outline btn-sm"><i class="fas fa-tower-broadcast"></i> Monitoring</a>
-    <a href="/simulate"       class="btn btn-outline btn-sm"><i class="fas fa-bolt"></i> Simuler</a>
-    <a href="/create_event"   class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Événement</a>
+    <a href="/ids/intrusions" class="btn btn-primary btn-sm"><i class="fas fa-bug"></i> Voir intrusions</a>
   </div>
 </div>
 
 <!-- Stats row -->
-<div class="g-stats g-6 mb-4 a2">
+<div class="g-stats g-5 mb-4 a2">
   <div class="stat stat-red">
     <div class="stat-lbl">Alertes critiques <i class="fas fa-exclamation-triangle"></i></div>
     <div class="stat-val" id="c0">{{ critical }}</div>
@@ -27,116 +26,85 @@
     <div class="stat-lbl">Total alertes <i class="fas fa-bell"></i></div>
     <div class="stat-val" id="c2">{{ total_alerts }}</div>
   </div>
-  <div class="stat stat-neutral">
-    <div class="stat-lbl" style="color:var(--text-2)">Événements réseau <i class="fas fa-network-wired" style="color:var(--text-3)"></i></div>
-    <div class="stat-val" id="c3">{{ events|length }}</div>
-  </div>
   <div class="stat stat-red">
     <div class="stat-lbl">Intrusions <i class="fas fa-bug"></i></div>
-    <div class="stat-val" id="c4">{{ total_intrusions }}</div>
+    <div class="stat-val" id="c3">{{ total_intrusions }}</div>
   </div>
   <div class="stat stat-purple">
     <div class="stat-lbl">Fichiers d'événements <i class="fas fa-folder"></i></div>
-    <div class="stat-val" id="c5">{{ total_files }}</div>
+    <div class="stat-val" id="c4">{{ total_files }}</div>
   </div>
 </div>
 
-<div class="two-col a3">
-  <!-- Events table -->
-  <div style="grid-column: span 2">
-    <div class="flex items between mb-2">
-      <div class="section-lbl mb-0">Derniers événements réseau</div>
-      <a href="/events" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">Voir tout →</a>
+<!-- Recent intrusions -->
+<div class="a3">
+  <div class="flex items between mb-2">
+    <div class="section-lbl mb-0">Dernières intrusions détectées</div>
+    <a href="/ids/intrusions" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">Voir tout →</a>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Horodatage</th><th>Utilisateur</th><th>Ressource</th><th>Tâche</th><th>Violation</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for i in recent_intrusions %}
+          <tr>
+            <td style="color:var(--text-3);font-size:12.5px;white-space:nowrap">{{ i.detected_at.strftime('%d/%m %H:%M:%S') }}</td>
+            <td><code>{{ i.entry.username }}</code></td>
+            <td><span class="badge badge-gray">{{ i.entry.resource_name }}</span></td>
+            <td style="color:var(--text-2);font-size:12.5px">{{ i.entry.task }}</td>
+            <td class="truncate" style="max-width:380px;color:var(--text-2);font-size:12.5px">{{ (i.violation_type or '')[:90] }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" style="text-align:center;padding:48px;color:var(--text-3)">
+              <i class="fas fa-shield-halved" style="font-size:26px;display:block;margin-bottom:8px;opacity:.2;color:var(--green)"></i>
+              Aucune intrusion détectée — le système surveille en temps réel.
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="card">
-      <div class="tbl-wrap">
-        <table class="tbl">
-          <thead>
-            <tr>
-              <th>Horodatage</th><th>Source IP</th><th>Port</th><th>Protocole</th><th>Payload</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for e in events %}
-            <tr>
-              <td style="color:var(--text-3);font-size:12.5px;white-space:nowrap">{{ e.timestamp.strftime('%d/%m %H:%M:%S') }}</td>
-              <td><code>{{ e.source_ip or '—' }}</code></td>
-              <td><span class="badge badge-port">{{ e.port }}</span></td>
-              <td style="color:var(--text-2);font-size:12.5px">{{ e.protocol or 'TCP' }}</td>
-              <td class="truncate" style="max-width:300px;color:var(--text-2);font-size:12.5px">{{ (e.payload or '—')[:70] }}</td>
-            </tr>
-          {% else %}
-            <tr>
-              <td colspan="5" style="text-align:center;padding:48px;color:var(--text-3)">
-                <i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px;opacity:.3"></i>
-                Aucun événement — <a href="/simulate" style="color:var(--blue);text-decoration:none">simuler du trafic</a>
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+  </div>
+</div>
+
+<!-- Alerts row -->
+<div class="mt-3 a4">
+  <div class="flex items between mb-2">
+    <div class="section-lbl mb-0">Alertes récentes</div>
+    <a href="/alerts" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">Voir tout →</a>
+  </div>
+  <div class="card" style="max-height:360px;overflow-y:auto">
+    {% for alert in alerts %}
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border-s);display:flex;flex-direction:column;gap:5px">
+        <div class="flex items gap-2">
+          <span class="badge badge-{{ alert.severity or 'medium' }}">{{ (alert.severity or '?').upper() }}</span>
+          <span style="font-size:11.5px;color:var(--text-3);margin-left:auto">{{ alert.timestamp.strftime('%d/%m %H:%M:%S') }}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text);line-height:1.4" class="truncate">{{ alert.message[:120] }}</div>
+        {% if not alert.acknowledged %}
+          <a href="/ack_alert/{{ alert.id }}" style="font-size:12px;color:var(--blue);text-decoration:none;font-weight:600;display:inline-block">
+            Acquitter →
+          </a>
+        {% endif %}
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- Alerts + Intrusions row -->
-<div class="two-col mt-3 a4" style="grid-template-columns:1fr 1fr">
-  <div>
-    <div class="flex items between mb-2">
-      <div class="section-lbl mb-0">Alertes récentes</div>
-      <a href="/alerts" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">Voir tout →</a>
-    </div>
-    <div class="card" style="max-height:360px;overflow-y:auto">
-      {% for alert in alerts %}
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border-s);display:flex;flex-direction:column;gap:5px">
-          <div class="flex items gap-2">
-            <span class="badge badge-{{ alert.severity or 'medium' }}">{{ (alert.severity or '?').upper() }}</span>
-            <span style="font-size:11.5px;color:var(--text-3);margin-left:auto">{{ alert.timestamp.strftime('%H:%M:%S') }}</span>
-          </div>
-          <div style="font-size:13px;color:var(--text);line-height:1.4" class="truncate">{{ alert.message[:90] }}</div>
-          {% if not alert.acknowledged %}
-            <a href="/ack_alert/{{ alert.id }}" style="font-size:12px;color:var(--blue);text-decoration:none;font-weight:600;display:inline-block">
-              Acquitter →
-            </a>
-          {% endif %}
-        </div>
-      {% else %}
-        <div style="padding:48px;text-align:center;color:var(--text-3)">
-          <i class="fas fa-check-circle" style="font-size:26px;display:block;margin-bottom:8px;opacity:.2;color:var(--green)"></i>
-          Aucune alerte
-        </div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div>
-    <div class="flex items between mb-2">
-      <div class="section-lbl mb-0">Dernières intrusions</div>
-      <a href="/ids/intrusions" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">Voir tout →</a>
-    </div>
-    <div class="card" style="max-height:360px;overflow-y:auto">
-      {% for i in alerts if '[IDS]' in i.message %}
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border-s)">
-          <div class="flex items gap-2 mb-1">
-            <span class="badge badge-{{ i.severity or 'red' }}">{{ (i.severity or '?').upper() }}</span>
-            <span style="font-size:11.5px;color:var(--text-3);margin-left:auto">{{ i.timestamp.strftime('%H:%M:%S') }}</span>
-          </div>
-          <div style="font-size:13px;color:var(--text);line-height:1.4" class="truncate">{{ i.message.replace('[IDS] ','')[:80] }}</div>
-        </div>
-      {% else %}
-        <div style="padding:48px;text-align:center;color:var(--text-3)">
-          <i class="fas fa-shield-halved" style="font-size:26px;display:block;margin-bottom:8px;opacity:.15;color:var(--blue)"></i>
-          Aucune intrusion IDS
-        </div>
-      {% endfor %}
-    </div>
+    {% else %}
+      <div style="padding:48px;text-align:center;color:var(--text-3)">
+        <i class="fas fa-check-circle" style="font-size:26px;display:block;margin-bottom:8px;opacity:.2;color:var(--green)"></i>
+        Aucune alerte
+      </div>
+    {% endfor %}
   </div>
 </div>
 
 <script>
 (function(){
-  const data = [{{ critical }},{{ high }},{{ total_alerts }},{{ events|length }},{{ total_intrusions }},{{ total_files }}];
+  const data = [{{ critical }},{{ high }},{{ total_alerts }},{{ total_intrusions }},{{ total_files }}];
   data.forEach((target, i) => {
     if (!target) return;
     const el = document.getElementById('c'+i);

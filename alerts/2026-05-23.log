@@ -523,3 +523,363 @@ INTRUSION DÉTECTÉE
   Type        : user_unknown
   Ligne brute : ROOT EXEC: kubelet (/usr/bin/kubelet)
 ═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:18:10 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:18:08
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:18:10 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 08:18:08
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:18:11 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:18:08
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:18:11 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 09:18:08
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779524288.925:3792): pid=36969 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:18:11 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : root
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 09:18:08
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'root' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779524288.962:3797): pid=36983 uid=0 auid=1000 ses=3 subj=unconfined msg='
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:20:14 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 08:20:14
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:20:14 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:20:14
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:20:14 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : root
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 09:20:14
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'root' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779524414.076:3846): pid=37322 uid=0 auid=1000 ses=3 subj=unconfined msg='
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:25:42 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:25:40
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:25:42 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 08:25:40
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:25:45 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:25:40
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779524740.995:3952): pid=38365 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:30 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:55:28
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:30 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:55:28
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779526528.810:4504): pid=43294 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:34 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:55:33
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:37 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:55:33
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779526533.561:4509): pid=43294 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:40 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:55:37
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:40 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:55:37
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Brute force détecté : 5 tentatives échouées en 60s pour 'roberto'
+  Type        : brute_force
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:40 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 09:55:37
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779526537.353:4510): pid=43294 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:40 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 08:55:39
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:46 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:55:45
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:46 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-23 08:55:45
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:46 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : ssh_server
+  Tâche       : failed_login
+  Date accès  : 2026-05-23 08:55:45
+  Source      : auditd/auth
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : AUTH FAILED: roberto via 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:49 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 09:55:45
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779526545.771:4515): pid=43335 uid=1000 auid=1000 ses=3 subj=unconfined ms
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 08:55:49 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : root
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-23 09:55:45
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'root' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : type=USER_AUTH msg=audit(1779526545.799:4520): pid=43358 uid=0 auid=1000 ses=3 subj=unconfined msg='
+═══════════════════════════════════════════════════════

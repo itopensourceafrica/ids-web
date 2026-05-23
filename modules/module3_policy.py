@@ -7,19 +7,21 @@ La politique de sécurité peut être gérée de deux façons :
 
 Format policy.conf :
   # Commentaire
-  username;resource;task;start_date(YYYY-MM-DD);end_date(YYYY-MM-DD);active(1/0)
+  username;resource;policy_type;task;start_date(YYYY-MM-DD);end_date(YYYY-MM-DD);active(1/0)
 
   Exemple :
-    alice;database;read;2026-01-01;2026-12-31;1
-    alice;database;write;2026-01-01;2026-12-31;1
-    bob;web_server;read;2026-01-01;2026-06-30;1
-    bob;ssh_server;login;2026-01-01;2026-12-31;1
+    alice;database;allow;read;2026-01-01;2026-12-31;1
+    alice;database;allow;write;2026-01-01;2026-12-31;1
+    bob;web_server;allow;read;2026-01-01;2026-06-30;1
+    bob;ssh_server;allow;login;2026-01-01;2026-12-31;1
+    bob;web_server;deny;admin;2026-01-01;2026-12-31;1
 
 Ce module :
   - Charge policy.conf au démarrage et synchronise avec la DB
   - Surveille policy.conf pour tout changement (hot reload)
   - Exporte la politique DB vers policy.conf sur demande
   - Valide le format et signale les erreurs
+  - Système allow/deny cumulatif: deny-by-default, accumulation de droits
 """
 
 import os
@@ -44,12 +46,13 @@ def _parse_dt(s: str) -> datetime:
 
 HEADER = """\
 # ============================================================
-# IDS — Politique de Sécurité
-# Format : username;resource;task;start_date;end_date;active
-# Dates  : YYYY-MM-DD
+# IDS — Politique de Sécurité (Système Allow/Deny Cumulatif)
+# Format : username;resource;policy_type;task;start_date;end_date;active
+# Type   : allow (autoriser) ou deny (refuser)
+# Dates  : YYYY-MM-DD ou YYYY-MM-DD HH:MM
 # Active : 1=oui, 0=non
 # Tâches : read, write, delete, execute, admin, login,
-#          failed_login, backup, restore, connect
+#          failed_login, backup, network_access
 # ============================================================
 """
 
@@ -67,6 +70,7 @@ status = {
 def parse_policy_file(path: str) -> list[dict]:
     """
     Lit et valide policy.conf.
+    Format : username;resource;policy_type;task;start_date;end_date;active
     Retourne une liste de règles dict ou lève ValueError.
     """
     rules = []
@@ -82,14 +86,18 @@ def parse_policy_file(path: str) -> list[dict]:
                 continue
 
             parts = line.split(';')
-            if len(parts) != 6:
-                errors.append(f'Ligne {lineno}: 6 champs attendus, {len(parts)} trouvés — "{line}"')
+            if len(parts) != 7:
+                errors.append(f'Ligne {lineno}: 7 champs attendus, {len(parts)} trouvés — "{line}"')
                 continue
 
-            username, resource, task, start_str, end_str, active_str = [p.strip() for p in parts]
+            username, resource, policy_type, task, start_str, end_str, active_str = [p.strip() for p in parts]
 
-            if not all([username, resource, task, start_str, end_str]):
+            if not all([username, resource, policy_type, task, start_str, end_str]):
                 errors.append(f'Ligne {lineno}: champ vide')
+                continue
+
+            if policy_type not in ('allow', 'deny'):
+                errors.append(f'Ligne {lineno}: policy_type doit être "allow" ou "deny"')
                 continue
 
             try:
@@ -108,6 +116,7 @@ def parse_policy_file(path: str) -> list[dict]:
             rules.append({
                 'username':   username,
                 'resource':   resource,
+                'policy_type': policy_type,
                 'task':       task,
                 'start_date': start_date,
                 'end_date':   end_date,
@@ -161,7 +170,8 @@ def import_from_file(app, path: str = None, replace: bool = True) -> dict:
             # Vérifier doublon si replace=False
             if not replace:
                 exists = AccessPolicy.query.filter_by(
-                    user_id=user.id, resource_id=res.id, task=rule['task']
+                    user_id=user.id, resource_id=res.id, task=rule['task'],
+                    policy_type=rule['policy_type']
                 ).first()
                 if exists:
                     result['skipped'] += 1
@@ -171,6 +181,7 @@ def import_from_file(app, path: str = None, replace: bool = True) -> dict:
                 user_id=user.id,
                 resource_id=res.id,
                 task=rule['task'],
+                policy_type=rule['policy_type'],
                 start_date=rule['start_date'],
                 end_date=rule['end_date'],
                 active=rule['active'],
@@ -201,10 +212,11 @@ def export_to_file(app, path: str = None) -> int:
         lines = [HEADER]
         for p in policies:
             active = '1' if p.active else '0'
+            policy_type = p.policy_type or 'allow'
             # Inclure l'heure si elle n'est pas minuit (restriction horaire active)
             s_fmt = '%Y-%m-%d %H:%M' if p.start_date.hour or p.start_date.minute else '%Y-%m-%d'
             e_fmt = '%Y-%m-%d %H:%M' if p.end_date.hour or p.end_date.minute else '%Y-%m-%d'
-            line = (f"{p.user.username};{p.resource.name};{p.task};"
+            line = (f"{p.user.username};{p.resource.name};{policy_type};{p.task};"
                     f"{p.start_date.strftime(s_fmt)};"
                     f"{p.end_date.strftime(e_fmt)};{active}")
             lines.append(line)
@@ -261,15 +273,46 @@ class PolicyWatcher(threading.Thread):
 
 
 def _create_default_policy():
-    """Crée un policy.conf par défaut si absent."""
+    """Crée un policy.conf par défaut avec règles couvrant HIDS + NIDS."""
     default = HEADER + """\
-# Exemple — décommentez et adaptez à votre environnement
-# alice;database;read;2026-01-01;2026-12-31;1
-# alice;database;write;2026-01-01;2026-12-31;1
-# alice;ssh_server;login;2026-01-01;2026-12-31;1
-# bob;web_server;read;2026-01-01;2026-06-30;1
-# bob;ssh_server;login;2026-01-01;2026-12-31;1
-# charlie;file_storage;read;2026-01-01;2026-12-31;1
+# ════ HIDS — Authentification & Accès SSH ════
+alice;ssh_server;allow;login;2026-01-01;2026-12-31;1
+alice;ssh_server;allow;execute;2026-01-01;2026-12-31;1
+bob;ssh_server;allow;login;2026-01-01;2026-12-31;1
+charlie;ssh_server;allow;login;2026-01-01;2026-12-31;1
+charlie;ssh_server;deny;execute;2026-01-01;2026-12-31;1
+root;ssh_server;allow;login;2026-01-01;2026-12-31;1
+root;ssh_server;allow;admin;2026-01-01;2026-12-31;1
+
+# ════ HIDS — Accès aux fichiers critiques ════
+alice;file_system;allow;read;2026-01-01;2026-12-31;1
+alice;file_system;allow;write;2026-01-01;2026-12-31;1
+bob;file_system;allow;read;2026-01-01;2026-12-31;1
+charlie;file_system;allow;write;2026-01-01;2026-12-31;1
+root;file_system;allow;delete;2026-01-01;2026-12-31;1
+
+# ════ HIDS — Gestion des utilisateurs (auditd) ════
+root;user_management;allow;admin;2026-01-01;2026-12-31;1
+alice;user_management;allow;read;2026-01-01;2026-12-31;1
+
+# ════ HIDS — Base de données ════
+alice;database;allow;read;2026-01-01;2026-12-31;1
+alice;database;allow;write;2026-01-01;2026-12-31;1
+bob;database;allow;read;2026-01-01;2026-06-30;1
+
+# ════ HIDS — Sauvegarde & Restauration ════
+alice;backup;allow;backup;2026-01-01;2026-12-31;1
+root;backup;allow;backup;2026-01-01;2026-12-31;1
+root;backup;allow;restore;2026-01-01;2026-12-31;1
+
+# ════ NIDS — Accès réseau ════
+alice;network_access;allow;login;2026-01-01;2026-12-31;1
+bob;network_access;allow;login;2026-01-01;2026-12-31;1
+charlie;network_access;allow;login;2026-01-01;2026-12-31;1
+root;network_access;allow;login;2026-01-01;2026-12-31;1
+
+# ════ Restrictions horaires (exemple) ════
+# charlie;web_server;allow;read;2026-01-01 08:00;2026-12-31 18:00;1
 """
     with open(POLICY_FILE, 'w', encoding='utf-8') as f:
         f.write(default)

@@ -33,12 +33,20 @@
             </select>
           </div>
           <div class="f-group">
-            <label class="f-label">Tâche autorisée</label>
+            <label class="f-label">Action</label>
+            <select name="policy_type" class="f-select" required>
+              <option value="allow">Allow — autoriser</option>
+              <option value="deny">Deny — refuser</option>
+            </select>
+          </div>
+          <div class="f-group">
+            <label class="f-label">Tâche</label>
             <select name="task" class="f-select" required>
               <option value="read">read</option><option value="write">write</option>
               <option value="delete">delete</option><option value="execute">execute</option>
               <option value="admin">admin</option><option value="login">login</option>
               <option value="failed_login">failed_login</option><option value="backup">backup</option>
+              <option value="network_access">network_access</option>
             </select>
           </div>
           <div class="f-group"><label class="f-label">Date de début</label>
@@ -62,7 +70,7 @@
     <div class="card">
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Utilisateur</th><th>Ressource</th><th>Tâche</th><th>Début</th><th>Fin</th><th>Statut</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Utilisateur</th><th>Ressource</th><th>Action</th><th>Tâche</th><th>Début</th><th>Fin</th><th>Statut</th><th>Actions</th></tr></thead>
           <tbody>
           {% for p in policies %}
             <tr style="{{ 'opacity:.5' if not p.active else '' }}">
@@ -73,6 +81,7 @@
                 </div>
               </td>
               <td><code>{{ p.resource.name }}</code></td>
+              <td><span class="badge badge-{{ 'ok' if p.policy_type == 'allow' else 'red' }}">{{ '✓ Allow' if p.policy_type == 'allow' else '✗ Deny' }}</span></td>
               <td><span class="badge badge-gray">{{ p.task }}</span></td>
               <td style="color:var(--text-3);font-size:12px">{{ p.start_date.strftime('%d/%m/%Y') }}</td>
               <td style="color:var(--text-3);font-size:12px">{{ p.end_date.strftime('%d/%m/%Y') }}</td>
@@ -85,7 +94,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="7" style="text-align:center;padding:48px;color:var(--text-3)">Aucune règle</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-3)">Aucune règle</td></tr>
           {% endfor %}
           </tbody>
         </table>

@@ -18,6 +18,7 @@ Plateforme de détection d'intrusions modulaire, développée en Python/Flask. E
 - [Règles NIDS (nids_rules.conf)](#règles-nids-nids_rulesconf)
 - [Format des fichiers d'événements](#format-des-fichiers-dévénements)
 - [Format des alertes](#format-des-alertes)
+- [Guide d'utilisation de l'interface web](#guide-dutilisation-de-linterface-web)
 - [Tests réels](#tests-réels)
 - [Configuration email](#configuration-email)
 - [Déploiement production](#déploiement-production)
@@ -427,6 +428,457 @@ INTRUSION DÉTECTÉE
   Ligne brute : May 22 03:14:00 sudo: hacker_01 : COMMAND=/usr/bin/mysql
 ═══════════════════════════════════════════════════════
 ```
+
+---
+
+## Guide d'utilisation de l'interface web
+
+Ce guide explique **précisément** ce que tu vois sur chaque page : d'où viennent les données, comment elles sont générées, et ce que chaque compteur/tableau représente.
+
+### **Dashboard (`http://localhost:5000/`)**
+
+#### Compteur "Alertes critiques" (badge rouge)
+
+**Valeur :** `SELECT COUNT(*) FROM alert WHERE severity='critical'`
+
+**Ce qu'il représente :** Nombre d'alertes jugées critiques par le système.
+
+**Comment une alerte devient "critical" :**
+- Module 2 détecte une violation de type `user_unknown` → severity `'critical'`
+  - Exemple : utilisateur `hacker_01` tente une action, mais n'existe pas dans la politique
+- Module 2 détecte une violation de type `unauthorized_access` → severity `'critical'`
+  - Exemple : utilisateur `bob` tente d'accéder à `email_server`, alors qu'aucune règle ne l'y autorise
+- Module 2 détecte une violation de type `brute_force` → severity `'critical'`
+  - Exemple : 5+ tentatives SSH échouées en 60 secondes
+
+**Flux complet :**
+1. Module 1 crée un événement JSONL : `{ username: "hacker_01", resource: "database", task: "admin", ... }`
+2. Module 2 lit cet événement, le compare à AccessPolicy
+3. Pas de correspondance → Module 2 génère `violation['severity'] = 'critical'`
+4. Module 2 enqueue cette intrusion pour Module 4
+5. Module 4 crée une Alert en DB avec `severity='critical'`
+6. Interface affiche ce compteur
+
+#### Compteur "Alertes hautes" (badge orange)
+
+**Valeur :** `SELECT COUNT(*) FROM alert WHERE severity='high'`
+
+**Comment une alerte devient "high" :**
+- Module 2 détecte une violation de type `date_violation` → severity `'high'`
+  - Exemple : `bob` accède au jour où sa règle a expiré (après 2026-06-30)
+- Module 2 détecte une violation de type `time_violation` → severity `'high'`
+  - Exemple : `charlie` accède entre 19:00-23:59, alors que son accès est restreint 08:00-18:00
+- NIDS détecte une intrusion réseau → severity `'high'`
+  - Exemple : connexion sur port SSH (22) depuis une IP non whitelistée
+
+#### Compteur "Total alertes"
+
+**Valeur :** `SELECT COUNT(*) FROM alert`
+
+**Simple :** Somme de toutes les alertes (critical + high + medium + low).
+
+#### Compteur "Intrusions"
+
+**Valeur :** `SELECT COUNT(*) FROM intrusion`
+
+**Ce qu'il représente :** Nombre de violations de politique détectées.
+
+**Important :** Une `Intrusion` ≠ une `Alert`. 
+- **Intrusion** = le fait brut qu'une violation a été détectée (créée par Module 2)
+- **Alert** = le message formaté affiché à l'utilisateur (créé par Module 4)
+
+Normalement, 1 Intrusion = 1 Alert.
+
+#### Compteur "Fichiers d'événements"
+
+**Valeur :** `SELECT COUNT(*) FROM event_file`
+
+**Ce qu'il représente :** Nombre de fichiers d'analyse batch créés.
+
+**Important :** Ces fichiers ne sont **pas** créés automatiquement. Tu les crées manuellement depuis `/ids/files/create` pour faire de l'analyse batch (historique).
+
+#### Table "Dernières intrusions détectées"
+
+Affiche les **15 dernières** Intrusions avec :
+- **Horodatage** : quand l'événement s'est produit (`i.entry.execution_date`)
+- **Utilisateur** : qui a déclenché (`i.entry.username`)
+- **Ressource** : quoi (`i.entry.resource_name`)
+- **Tâche** : action tentée (`i.entry.task`)
+- **Type violation** : le message complet généré par Module 2, ex:
+  ```
+  "Accès de 'alice' hors de la plage horaire autorisée (08:00 → 18:00) — heure d'accès : 23:45"
+  ```
+- **Détectée le** : quand l'IDS a créé cette intrusion (`i.detected_at`)
+
+---
+
+### **Alertes (`http://localhost:5000/alerts`)**
+
+#### En-tête
+
+```
+Alertes
+13 alertes — 3 non lues
+[Tout acquitter ↗]
+```
+
+- **13 alertes** = `Alert.query.count()`
+- **3 non lues** = `Alert.query.filter_by(acknowledged=False).count()`
+
+Chaque alerte a un champ `acknowledged` (boolean) : 
+- À la création → `acknowledged=False` (rouge, non lue)
+- Après clic "Acquitter" → `acknowledged=True` (grise)
+
+#### Table des alertes
+
+**Colonne "Sévérité":**
+- Badge **rouge** si `severity='critical'` (user_unknown, unauthorized_access, brute_force)
+- Badge **orange** si `severity='high'` (date_violation, time_violation, network_intrusion)
+
+**Colonne "Source":**
+- Badge **[IDS]** (rouge) si le message commence par `"[IDS]"` (créé par Module 4 via Module 2)
+- Badge **Réseau** (gris) sinon (ancien système, peu actif)
+
+**Colonne "Message":**
+- Tronqué à 80 caractères
+- Format typique : `[IDS] alice | write sur database | Aucune règle n'autorise...`
+
+**Bouton "Acquitter" :**
+- Clique → `/ack_alert/<id>` → `acknowledged=True`
+
+**Bouton "Tout acquitter" :**
+- Route `/ack_all_alerts` → met tous les `acknowledged=False` → `True`
+- Utile pour vider la liste des non-lues en un coup
+
+---
+
+### **Table des Intrusions (`http://localhost:5000/ids/intrusions`)**
+
+#### En-tête
+
+```
+Table des Intrusions
+Violations de la politique de sécurité (127)
+[↺ Réinitialiser]
+```
+
+**127** = `Intrusion.query.count()`
+
+#### Colonnes du tableau
+
+**"Type violation":**
+Selon le type de violation détecté par Module 2 :
+
+| Type détecté | Message généré |
+|---|---|
+| `user_unknown` | `Utilisateur 'X' absent de la politique de sécurité` |
+| `unauthorized_access` | `Aucune règle n'autorise 'X' à effectuer 'TASK' sur 'RESOURCE'` |
+| `date_violation` | `Accès de 'X' hors de la plage autorisée (YYYY-MM-DD → YYYY-MM-DD)` |
+| `time_violation` | `Accès de 'X' hors de la plage horaire autorisée (HH:MM → HH:MM)` |
+| `brute_force` | `Brute force détecté : N tentatives échouées en 60s pour 'X'` |
+| `network_intrusion` | `Connexion entrante suspecte depuis X.X.X.X sur RESOURCE` |
+
+**Code-couleur des badges :**
+```
+Si "inconnu" ou "absent" ou "network_intrusion" dans le message → badge ROUGE
+Si "horaire" ou "date" ou "plage" dans le message → badge ORANGE
+Sinon → badge ORANGE
+```
+
+---
+
+### **Monitoring (`http://localhost:5000/ids/monitoring`)**
+
+Affiche en **temps réel** (SSE) le statut des 4 collecteurs du Module 1.
+
+#### Section "Sniffer Réseau (scapy)"
+
+```
+ACTIF (pouls vert)
+Paquets capturés : 12457
+Règles NIDS : 32
+Signatures : 27
+Whitelist : 4 entrée(s)
+Démarré : 10:23
+```
+
+**Paquets capturés :**
+- `sniffer_status['packets_captured']` — incrémenté chaque fois qu'un paquet IP passe
+- Code : `self._count += 1` dans `handle(pkt)`
+
+**Règles NIDS :**
+- `nids_status['rules']` — nombre de lignes `alert;...` chargées depuis `nids_rules.conf`
+- Par défaut : 32 règles (ports dangereux + signatures)
+
+**Signatures :**
+- `nids_status['signatures']` — nombre de règles avec un `payload_pattern`
+- Exemple : `alert;any;any;SELECT * FROM;critical;...` → 1 signature
+
+**Whitelist :**
+- `nids_status['whitelisted']` — nombre d'entrées `whitelist;ip;...` ou `whitelist;net;...`
+- Exemple : `whitelist;ip;127.0.0.1` + `whitelist;net;10.0.0.0/8` → 2 whitelisted
+
+#### Section "Auditd"
+
+```
+ACTIF
+Événements parsés : 427
+Règles chargées : 11/11
+Démarré : 10:23
+```
+
+**Événements parsés :**
+- `auditd_status['events_parsed']` — nombre de lignes lues et convertis depuis `/var/log/audit/audit.log`
+- Chaque ligne valide → 1 événement JSONL
+
+**Règles chargées :**
+- `auditd_status['rules_loaded']` — nombre de règles auditctl appliquées au démarrage (11 règles dans `ids_audit.rules`)
+- Format : `11/11` = 11 chargées sur 11 tentées
+
+#### Section "Lecteur de Logs (auth.log)"
+
+```
+ACTIF
+Fichier : /var/log/auth.log
+Lignes lues : 523
+Entrées créées : 148
+Démarré : 10:23
+```
+
+**Lignes lues :**
+- `logwatcher_status['lines_processed']` — nombre de lignes totales parsées
+
+**Entrées créées :**
+- `logwatcher_status['entries_created']` — nombre d'événements valides extraits
+- Raison de la différence (523 → 148) : beaucoup de lignes ne sont pas des événements intéressants
+
+Module 1 relit auth.log toutes les 3s depuis un curseur (`.events_cursor.json`) pour ne pas rejouer les vieilles lignes.
+
+#### Section "FileIntegrityMonitor"
+
+```
+ACTIF
+Fichiers surveillés : 7
+Baseline calculée : 2026-05-23 10:23
+```
+
+**Fichiers surveillés :**
+- Nombre de fichiers listés dans `ids_integrity.conf`
+- Par défaut : 7 (passwd, shadow, sudoers, sshd_config, crontab, hosts, pam.d/common-auth)
+
+**Toutes les 30 secondes :**
+- Module 1 calcule `sha256(contenu)` pour chaque fichier
+- Compare avec le hash précédent
+- Si différent → crée événement JSONL `{ source: "file_integrity", ... }`
+- Module 2 détecte → Intrusion + Alert
+
+---
+
+### **Politique de Sécurité (`http://localhost:5000/ids/policy`)**
+
+#### En-tête
+
+```
+16 active(s)
+[↓ Télécharger] [↑ Importer] [→ Exporter]
+```
+
+**16 active(s)** = `AccessPolicy.query.filter_by(active=True).count()`
+
+**Boutons :**
+- **Exporter** : Sauvegarde la DB dans `policy.conf` (fichier texte éditable)
+- **Importer** : Charge `policy.conf` dans la DB
+- **Télécharger** : Récupère `policy.conf` comme fichier `.txt`
+
+#### Formulaire "Ajouter une règle"
+
+```
+Utilisateur : [alice, bob, charlie, ...]
+Ressource   : [database, web_server, ssh_server, ...]
+Tâche       : [read, write, delete, execute, admin, login, ...]
+Début       : [2026-01-01] [00:00]
+Fin         : [2026-12-31] [23:59]
+```
+
+Crée une nouvelle `AccessPolicy` :
+- **Utilisateur** : qui (de `IDSUser`)
+- **Ressource** : quoi (de `Resource`)
+- **Tâche** : action (liste fixe)
+- **Dates/heures** : plage d'autorisation
+
+Exemple : `alice;database;read;2026-01-01 00:00;2026-12-31 23:59;1` = alice peut lire la DB toute l'année.
+
+#### Table des règles existantes
+
+| Utilisateur | Ressource | Tâche | Début | Fin | Statut | Actions |
+|---|---|---|---|---|---|---|
+| alice | database | read | 01/01/2026 | 31/12/2026 | Actif | [⏻] [🗑] |
+
+**Statut :**
+- **Vert "Actif"** = `active=True` → Module 2 utilise cette règle
+- **Gris "Inactif"** = `active=False` → Module 2 l'ignore
+
+**Bouton ⏻ (Toggle) :**
+- Inverse `active` sans supprimer
+
+**Bouton 🗑 (Delete) :**
+- Supprime la règle (cascade : supprime aussi les enfants)
+
+---
+
+### **Utilisateurs (`http://localhost:5000/ids/users`)**
+
+#### Table
+
+| Utilisateur | Rôle | Actions |
+|---|---|---|
+| alice | admin | [🗑] |
+| bob | user | [🗑] |
+
+**Rôle :**
+- `admin` ou `user` — déclaratif uniquement
+- C'est `AccessPolicy` (tâches) qui restreint réellement
+
+**Formulaire "Ajouter un utilisateur" :**
+```
+Nom : [texte]
+Rôle : [admin | user]
+```
+
+Crée un nouvel `IDSUser`. Validation : username unique.
+
+**Bouton 🗑 (Delete) :**
+- Supprime l'utilisateur ET toutes ses règles `AccessPolicy` (cascade)
+
+---
+
+### **Ressources (`http://localhost:5000/ids/resources`)**
+
+#### Table
+
+| Ressource | Description | Actions |
+|---|---|---|
+| database | Base de données principale | [🗑] |
+| ssh_server | Serveur SSH | [🗑] |
+
+Créées au démarrage par `_seed()`. Éditable.
+
+**Formulaire "Ajouter une ressource" :**
+```
+Nom : [texte unique]
+Description : [texte]
+```
+
+Crée une `Resource`. Une fois créée, apparaît dans les dropdowns de Policy.
+
+---
+
+### **Fichiers d'événements (`http://localhost:5000/ids/files`)**
+
+#### Formulaire "Créer un fichier vide"
+
+```
+Nom (optionnel) : [Session_Audit_001]
+[Créer]
+```
+
+Crée un `EventFile` avec `file_number` auto-incrémenté. C'est pour faire de l'analyse batch (historique, importation de données).
+
+#### Table des fichiers
+
+| # | Nom | Entrées | Créé le | Statut | Actions |
+|---|---|---|---|---|---|
+| 1 | Batch_001 | 45 | 23/05 10:23 | Analysé | [👁] [🗑] |
+
+**Entrées :**
+- `EventEntry.query.filter_by(file_id=f.id).count()`
+
+**Statut :**
+- **"Analysé"** si `analyzed=True` (Module 2 a traité ce fichier)
+- **"Vide"** si 0 entrées
+
+**Lien 👁 (Voir) :**
+- Accès `/ids/files/<file_id>` → liste des entrées + bouton "Ajouter une entrée"
+
+---
+
+### **Paramètres (`http://localhost:5000/ids/settings`)**
+
+#### Section 1 : SMTP (Email)
+
+```
+Hôte SMTP : [smtp.gmail.com]
+Port      : [587]
+Utilisateur : [ton@email.com]
+Mot de passe : [••••••••]
+Adresse "De" : [ids@votredomaine.com]
+Adresse "À" : [admin@votredomaine.com]
+TLS activé : [✓]
+[Sauvegarder]
+```
+
+Sauvegardé dans `ids_config.json` (JSON local).
+
+Quand Module 4 crée une alerte et qu'`ids_config.json` existe, il envoie un email à l'adresse "À".
+
+#### Section 2 : Surveillance d'intégrité
+
+```
+Fichiers à surveiller (un par ligne) :
+
+/etc/passwd
+/etc/shadow
+/etc/sudoers
+...
+```
+
+Sauvegardé dans `ids_integrity.conf` (un fichier par ligne).
+
+Module 1 relit ce fichier toutes les 30s et surveille les SHA-256.
+
+---
+
+### **Moteur d'Analyse (`http://localhost:5000/ids`)**
+
+#### Stats (6 cartes)
+
+| Utilisateurs | Ressources | Règles | Fichiers | Entrées | Intrusions |
+|---|---|---|---|---|---|
+| 6 | 8 | 16 | 2 | 92 | 11 |
+
+D'où ça vient :
+```python
+IDSUser.query.count()
+Resource.query.count()
+AccessPolicy.query.filter_by(active=True).count()
+EventFile.query.count()
+EventEntry.query.count()
+Intrusion.query.count()
+```
+
+#### Formulaire "Lancer l'Analyse"
+
+```
+N — Entrées max / fichier : [100]
+P — Nombre de fichiers : [2]
+M — Taille table intrusions : [1000]
+K — Règles max : [16]
+[Analyser]
+```
+
+**Paramètres :**
+- **N** : Max d'entrées à analyser par fichier
+- **P** : Nombre de fichiers à traiter (les plus récents)
+- **M** : Cap sur le nombre d'intrusions à créer
+- **K** : Max de règles à charger
+
+**Clic "Analyser" :**
+1. Charge jusqu'à **K** règles actives
+2. Charge jusqu'à **P** fichiers (plus récents)
+3. Pour chaque fichier, lit jusqu'à **N** entrées
+4. Pour chaque entrée, appelle `_check_event()` → détecte violations
+5. Crée Intrusions + Alerts pour chaque violation
+6. Redirige vers `/ids/intrusions`
 
 ---
 

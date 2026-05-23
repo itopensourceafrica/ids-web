@@ -11,10 +11,9 @@ import queue
 import time as time_module
 from flask import (Flask, render_template, request, redirect,
                    url_for, flash, Response, stream_with_context)
-from models import (db, SecurityRule, Event, Alert, Resource,
-                    IDSUser, AccessPolicy, EventFile, EventEntry, Intrusion)
-from datetime import datetime, timedelta
-import random
+from models import (db, Alert, Resource, IDSUser, AccessPolicy,
+                    EventFile, EventEntry, Intrusion)
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY']                  = 'ids_super_secret_2026'
@@ -62,7 +61,7 @@ def favicon():
 @app.route('/')
 def index():
     return render_template('index.html',
-        events=Event.query.order_by(Event.timestamp.desc()).limit(15).all(),
+        recent_intrusions=Intrusion.query.order_by(Intrusion.detected_at.desc()).limit(15).all(),
         alerts=Alert.query.order_by(Alert.timestamp.desc()).limit(10).all(),
         total_alerts=Alert.query.count(),
         critical=Alert.query.filter_by(severity='critical').count(),
@@ -117,6 +116,7 @@ def ids_add_policy():
         user_id=int(request.form['user_id']),
         resource_id=int(request.form['resource_id']),
         task=request.form['task'],
+        policy_type=request.form.get('policy_type', 'allow'),
         start_date=datetime.strptime(f'{s_date}T{s_time}', '%Y-%m-%dT%H:%M'),
         end_date=datetime.strptime(f'{e_date}T{e_time}', '%Y-%m-%dT%H:%M'),
     ))
@@ -476,7 +476,6 @@ def stream_stats():
                     'alerts':           Alert.query.count(),
                     'critical':         Alert.query.filter_by(severity='critical').count(),
                     'high':             Alert.query.filter_by(severity='high').count(),
-                    'events':           Event.query.count(),
                     'files':            EventFile.query.count(),
                     'entries':          EventEntry.query.count(),
                     'm1_sources':       m1.status['sources'],
@@ -499,129 +498,6 @@ def stream_stats():
     return Response(stream_with_context(generate()),
                     mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
-
-
-# ══════════════════════════════════════════════════════════════════
-# SCÉNARIO DE TEST
-# ══════════════════════════════════════════════════════════════════
-
-SCENARIO = {
-    'titre': 'Attaque Interne + Intrusion Externe',
-    'description': 'Simule 3 types d\'intrusions : date expirée, escalade de privilèges, utilisateurs inconnus.',
-    'fichiers': [
-        {'nom': 'Baseline_Légitimes', 'description': 'Accès normaux dans les plages autorisées',
-         'entrees': [
-            ('alice',   'database',    'read',   datetime(2026,3,15,9,0)),
-            ('alice',   'database',    'write',  datetime(2026,4,10,14,30)),
-            ('alice',   'ssh_server',  'login',  datetime(2026,2,20,8,0)),
-            ('bob',     'web_server',  'read',   datetime(2026,3,5,10,0)),
-            ('bob',     'web_server',  'write',  datetime(2026,5,1,11,0)),
-            ('bob',     'database',    'read',   datetime(2026,4,1,9,0)),
-            ('charlie', 'file_storage','read',   datetime(2026,4,15,16,0)),
-            ('charlie', 'file_storage','write',  datetime(2026,6,1,10,0)),
-            ('charlie', 'ssh_server',  'login',  datetime(2026,3,10,8,30)),
-         ]},
-        {'nom': 'Intrusion_Bob_DateExpirée', 'description': 'Bob accède à la DB après le 30 juin 2026',
-         'entrees': [
-            ('bob', 'database', 'read',  datetime(2026,7,5,9,0)),
-            ('bob', 'database', 'read',  datetime(2026,8,12,14,0)),
-            ('bob', 'database', 'write', datetime(2026,7,20,11,0)),
-            ('bob', 'web_server','read', datetime(2026,9,1,10,0)),
-         ]},
-        {'nom': 'Escalade_Privilèges', 'description': 'Tâches/ressources non autorisées',
-         'entrees': [
-            ('charlie', 'database',    'admin',  datetime(2026,5,10,22,0)),
-            ('charlie', 'database',    'read',   datetime(2026,5,11,9,0)),
-            ('charlie', 'file_storage','delete', datetime(2026,4,20,23,0)),
-            ('charlie', 'file_storage','write',  datetime(2026,11,1,10,0)),
-            ('bob',     'email_server','read',   datetime(2026,3,15,10,0)),
-         ]},
-        {'nom': 'Attaque_Externe', 'description': 'Utilisateurs inconnus',
-         'entrees': [
-            ('hacker_01',    'database',     'read',    datetime(2026,5,15,3,14)),
-            ('hacker_01',    'database',     'admin',   datetime(2026,5,15,3,15)),
-            ('hacker_01',    'web_server',   'write',   datetime(2026,5,15,3,16)),
-            ('attaquant_99', 'email_server', 'delete',  datetime(2026,5,20,2,0)),
-            ('attaquant_99', 'file_storage', 'read',    datetime(2026,5,20,2,5)),
-            ('root_attempt', 'ssh_server',   'login',   datetime(2026,5,22,1,44)),
-            ('scanner_bot',  'database',     'read',    datetime(2026,5,18,4,0)),
-         ]},
-    ]
-}
-
-@app.route('/ids/scenario')
-def ids_scenario():
-    existing = EventFile.query.filter(
-        EventFile.name.in_([f['nom'] for f in SCENARIO['fichiers']])
-    ).count()
-    total_entries = sum(len(f['entrees']) for f in SCENARIO['fichiers'])
-    return render_template('ids_scenario.html',
-        scenario=SCENARIO, total_entries=total_entries, already_loaded=(existing > 0))
-
-@app.route('/ids/scenario/run', methods=['POST'])
-def ids_run_scenario():
-    from modules import module3_policy    as m3
-    from modules.module2_analyzer import _check_event
-
-    action = request.form.get('action', 'load')
-
-    for fdef in SCENARIO['fichiers']:
-        existing = EventFile.query.filter_by(name=fdef['nom']).first()
-        if existing:
-            for entry in EventEntry.query.filter_by(file_id=existing.id).all():
-                if entry.intrusion_record:
-                    db.session.delete(entry.intrusion_record)
-            EventEntry.query.filter_by(file_id=existing.id).delete()
-            db.session.delete(existing)
-    Alert.query.filter(Alert.message.like('[IDS]%')).delete()
-    db.session.commit()
-
-    start_num = (EventFile.query.count() or 0) + 1
-    total_entries = 0
-    for i, fdef in enumerate(SCENARIO['fichiers']):
-        ef = EventFile(file_number=start_num + i, name=fdef['nom'])
-        db.session.add(ef)
-        db.session.flush()
-        for username, resource_name, task, exec_date in fdef['entrees']:
-            db.session.add(EventEntry(file_id=ef.id, username=username,
-                                      resource_name=resource_name, task=task,
-                                      execution_date=exec_date))
-            total_entries += 1
-    db.session.commit()
-    flash(f'Scénario chargé : {len(SCENARIO["fichiers"])} fichiers, {total_entries} entrées.', 'success')
-
-    if action == 'load_and_run':
-        policies = m3._load_policy_direct(app)
-        intrusions_found = 0
-        for fdef in SCENARIO['fichiers']:
-            ef = EventFile.query.filter_by(name=fdef['nom']).first()
-            for entry in EventEntry.query.filter_by(file_id=ef.id).all():
-                event_dict = {
-                    'username':       entry.username,
-                    'resource':       entry.resource_name,
-                    'task':           entry.task,
-                    'execution_date': entry.execution_date.isoformat(),
-                    'source':         'scenario',
-                    'raw':            f'Scénario: {fdef["nom"]}',
-                }
-                violation = _check_event(event_dict, policies)
-                if violation:
-                    intrusion = Intrusion(entry_id=entry.id, violation_type=violation['message'])
-                    db.session.add(intrusion)
-                    db.session.flush()
-                    db.session.add(Alert(
-                        message=(f"[IDS] {entry.username} | {entry.task} "
-                                 f"sur {entry.resource_name} | {violation['message']}"),
-                        severity=violation['severity']
-                    ))
-                    intrusions_found += 1
-            ef.analyzed = True
-        db.session.commit()
-        flash(f'Analyse terminée : {intrusions_found} intrusions sur {total_entries} entrées.',
-              'danger' if intrusions_found > 0 else 'success')
-        return redirect(url_for('ids_intrusions'))
-
-    return redirect(url_for('ids_scenario'))
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -690,19 +566,6 @@ def ids_settings():
 # ══════════════════════════════════════════════════════════════════
 
 def _seed():
-    if SecurityRule.query.count() == 0:
-        for name, desc, cond, sev in [
-            ('SMB Exploit',   'Accès port SMB suspect',        'port==445',      'high'),
-            ('SQL Injection',  'Tentative injection SQL',       'keyword=1=1',    'critical'),
-            ('Brute Force',    'Échecs de connexion répétés',   'keyword=failed', 'high'),
-            ('RDP Exploit',    'Accès port RDP suspect',        'port==3389',     'high'),
-            ('MySQL Exposed',  'Port MySQL exposé',             'port==3306',     'medium'),
-            ('Admin Access',   'Accès page admin',              'keyword=admin',  'high'),
-        ]:
-            db.session.add(SecurityRule(name=name, description=desc,
-                                        condition=cond, severity=sev))
-        db.session.commit()
-
     if IDSUser.query.count() == 0:
         for username, role in [('alice','admin'),('bob','analyst'),
                                ('charlie','user'),('diana','user')]:
