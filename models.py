@@ -45,6 +45,24 @@ class AccessPolicy(db.Model):
     resource = db.relationship('Resource', backref='policies')
 
 
+# ── Règles NIDS (réseau) — format avancé style firewall ────────────────────
+class NidsRule(db.Model):
+    __tablename__ = 'nids_rule'
+    id          = db.Column(db.Integer, primary_key=True)
+    name        = db.Column(db.String(100), nullable=False)
+    version     = db.Column(db.String(10), default='ipv4')     # ipv4 / ipv6 / any
+    protocol    = db.Column(db.String(10), default='tcp')      # tcp / udp / icmp / any
+    src_ip      = db.Column(db.String(50), default='0.0.0.0/0')
+    dst_ip      = db.Column(db.String(50), default='0.0.0.0/0')
+    src_port    = db.Column(db.String(20), default='any')      # any / 80 / 1000-2000
+    dst_port    = db.Column(db.String(20), default='any')
+    tcp_flags   = db.Column(db.String(30), default='')         # syn|ack|fin (vide = any)
+    action      = db.Column(db.String(10), default='alert')    # accept / deny / alert
+    severity    = db.Column(db.String(20), default='medium')   # critical / high / medium / low
+    active      = db.Column(db.Boolean, default=True)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 # ── Données d'analyse ──────────────────────────────────────────────────────
 class EventFile(db.Model):
     __tablename__ = 'event_file'

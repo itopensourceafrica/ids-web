@@ -1,21 +1,177 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Politique de Sécurité</div><div class="pg-sub">Autorisations — utilisateur × ressource × tâche × plage de dates</div></div>
+  <div>
+    <div class="pg-title">Politique de Sécurité</div>
+    <div class="pg-sub">
+      {% if rule_type == 'nids' %}
+        Règles réseau — IP × port × protocole × flags TCP
+      {% else %}
+        Autorisations — utilisateur × ressource × tâche × plage de dates
+      {% endif %}
+    </div>
+  </div>
   <div class="flex items gap-2">
-    <span class="badge badge-green">{{ policies|selectattr('active')|list|length }} active(s)</span>
-    <a href="/ids/policy/export" class="btn btn-outline btn-sm" title="Exporter vers policy.conf"><i class="fas fa-file-export"></i> Exporter</a>
-    <a href="/ids/policy/download" class="btn btn-outline btn-sm" title="Télécharger policy.conf"><i class="fas fa-download"></i> Télécharger</a>
-    <form method="POST" action="/ids/policy/import" style="display:inline">
-      <input type="hidden" name="replace" value="1">
-      <button type="submit" class="btn btn-outline btn-sm" title="Importer depuis policy.conf"><i class="fas fa-file-import"></i> Importer</button>
+    {% if rule_type == 'nids' %}
+      <span class="badge badge-green">{{ nids_rules|selectattr('active')|list|length }} active(s)</span>
+    {% else %}
+      <span class="badge badge-green">{{ policies|selectattr('active')|list|length }} active(s)</span>
+      <a href="/ids/policy/export" class="btn btn-outline btn-sm" title="Exporter vers policy.conf"><i class="fas fa-file-export"></i> Exporter</a>
+      <a href="/ids/policy/download" class="btn btn-outline btn-sm" title="Télécharger policy.conf"><i class="fas fa-download"></i> Télécharger</a>
+      <form method="POST" action="/ids/policy/import" style="display:inline">
+        <input type="hidden" name="replace" value="1">
+        <button type="submit" class="btn btn-outline btn-sm" title="Importer depuis policy.conf"><i class="fas fa-file-import"></i> Importer</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Toggle HIDS / NIDS -->
+<div class="card a1" style="margin-bottom:16px; padding:14px 18px">
+  <div class="flex items gap-2" style="font-size:13.5px">
+    <span style="color:var(--text-3); margin-right:6px">Type de règle :</span>
+    <a href="/ids/policy?type=hids"
+       class="btn btn-{{ 'primary' if rule_type == 'hids' else 'outline' }} btn-sm">
+      <i class="fas fa-user-shield"></i> HIDS — Accès utilisateurs
+    </a>
+    <a href="/ids/policy?type=nids"
+       class="btn btn-{{ 'primary' if rule_type == 'nids' else 'outline' }} btn-sm">
+      <i class="fas fa-network-wired"></i> NIDS — Règles réseau
+    </a>
+  </div>
+</div>
+
+{% if rule_type == 'nids' %}
+{# ═══════════ NIDS RULES ═══════════ #}
+<div class="card a2" style="margin-bottom:16px">
+  <div class="card-header"><h6>Ajouter une règle NIDS</h6></div>
+  <div class="card-body">
+    <form method="POST" action="/ids/policy/nids/add">
+      <div style="display:grid; grid-template-columns: repeat(9, 1fr); gap:10px; align-items:end">
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Name</label>
+          <input type="text" name="name" class="f-input" placeholder="ex: block-telnet" required>
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Version</label>
+          <select name="version" class="f-select">
+            <option value="ipv4">ipv4</option>
+            <option value="ipv6">ipv6</option>
+            <option value="any">any</option>
+          </select>
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Protocol</label>
+          <select name="protocol" class="f-select">
+            <option value="tcp">tcp</option>
+            <option value="udp">udp</option>
+            <option value="icmp">icmp</option>
+            <option value="any">any</option>
+          </select>
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Source IP</label>
+          <input type="text" name="src_ip" class="f-input" placeholder="0.0.0.0/0" value="0.0.0.0/0">
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Dest. IP</label>
+          <input type="text" name="dst_ip" class="f-input" placeholder="0.0.0.0/0" value="0.0.0.0/0">
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Src port</label>
+          <input type="text" name="src_port" class="f-input" placeholder="any" value="any">
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Dst port</label>
+          <input type="text" name="dst_port" class="f-input" placeholder="any" value="any">
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">TCP flags</label>
+          <input type="text" name="tcp_flags" class="f-input" placeholder="syn|ack|fin">
+        </div>
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Action</label>
+          <select name="action" class="f-select">
+            <option value="alert">alert</option>
+            <option value="deny">deny</option>
+            <option value="accept">accept</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr auto; gap:10px; margin-top:12px">
+        <div class="f-group" style="margin:0">
+          <label class="f-label" style="font-size:11px">Sévérité</label>
+          <select name="severity" class="f-select">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div style="align-self:end">
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Ajouter règle NIDS</button>
+        </div>
+      </div>
     </form>
   </div>
 </div>
+
+<div class="card a3">
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>#</th><th>Name</th><th>Ver</th><th>Proto</th>
+          <th>Src IP</th><th>Dst IP</th><th>Src port</th><th>Dst port</th>
+          <th>Flags</th><th>Action</th><th>Sev</th><th>État</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in nids_rules %}
+        <tr style="{{ 'opacity:.5' if not r.active else '' }}">
+          <td style="font-size:12px;color:var(--text-3)">{{ r.id }}</td>
+          <td><strong style="font-size:13px">{{ r.name }}</strong></td>
+          <td><span class="badge badge-gray">{{ r.version }}</span></td>
+          <td><span class="badge badge-gray">{{ r.protocol }}</span></td>
+          <td><code style="font-size:11px">{{ r.src_ip }}</code></td>
+          <td><code style="font-size:11px">{{ r.dst_ip }}</code></td>
+          <td><code style="font-size:11px">{{ r.src_port }}</code></td>
+          <td><code style="font-size:11px">{{ r.dst_port }}</code></td>
+          <td><code style="font-size:11px">{{ r.tcp_flags or '-' }}</code></td>
+          <td>
+            <span class="badge badge-{{ 'ok' if r.action == 'accept' else 'red' if r.action == 'deny' else 'amber' }}">
+              {{ r.action }}
+            </span>
+          </td>
+          <td>
+            <span class="badge badge-{{ 'red' if r.severity in ('critical','high') else 'amber' if r.severity == 'medium' else 'gray' }}">
+              {{ r.severity }}
+            </span>
+          </td>
+          <td><span class="badge badge-{{ 'ok' if r.active else 'gray' }}">{{ 'On' if r.active else 'Off' }}</span></td>
+          <td>
+            <div class="flex items gap-1">
+              <a href="/ids/policy/nids/toggle/{{ r.id }}" class="btn btn-outline btn-sm"><i class="fas fa-power-off"></i></a>
+              <a href="/ids/policy/nids/delete/{{ r.id }}" onclick="return confirm('Supprimer ?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a>
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="13" style="text-align:center;padding:48px;color:var(--text-3)">
+          Aucune règle NIDS. Ajoutez-en une ci-dessus.
+        </td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+{# ═══════════ HIDS POLICIES ═══════════ #}
 <div class="two-col" style="grid-template-columns:340px 1fr">
   <div class="a2">
     <div class="card">
-      <div class="card-header"><h6>Ajouter une règle</h6></div>
+      <div class="card-header"><h6>Ajouter une règle HIDS</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/policy/add">
           <div class="f-group">
@@ -94,7 +250,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-3)">Aucune règle</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-3)">Aucune règle HIDS</td></tr>
           {% endfor %}
           </tbody>
         </table>
@@ -102,4 +258,6 @@
     </div>
   </div>
 </div>
+{% endif %}
+
 {% endblock %}

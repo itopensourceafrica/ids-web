@@ -12,7 +12,7 @@ import time as time_module
 from flask import (Flask, render_template, request, redirect,
                    url_for, flash, Response, stream_with_context)
 from models import (db, Alert, Resource, IDSUser, AccessPolicy,
-                    EventFile, EventEntry, Intrusion)
+                    EventFile, EventEntry, Intrusion, NidsRule)
 from datetime import datetime
 
 app = Flask(__name__)
@@ -98,13 +98,50 @@ def ack_all_alerts():
 @app.route('/ids/policy')
 def ids_policy():
     from modules import module3_policy as m3
+    rule_type = request.args.get('type', 'hids')  # hids ou nids
     return render_template('ids_policy.html',
+        rule_type=rule_type,
         policies=AccessPolicy.query.all(),
+        nids_rules=NidsRule.query.order_by(NidsRule.id).all(),
         users=IDSUser.query.all(),
         resources=Resource.query.all(),
         policy_status=m3.status,
         policy_file=m3.POLICY_FILE,
     )
+
+# ── Règles NIDS ────────────────────────────────────────────────────────────
+@app.route('/ids/policy/nids/add', methods=['POST'])
+def ids_add_nids_rule():
+    db.session.add(NidsRule(
+        name      = request.form['name'].strip(),
+        version   = request.form.get('version', 'ipv4'),
+        protocol  = request.form.get('protocol', 'tcp'),
+        src_ip    = request.form.get('src_ip', '0.0.0.0/0').strip() or '0.0.0.0/0',
+        dst_ip    = request.form.get('dst_ip', '0.0.0.0/0').strip() or '0.0.0.0/0',
+        src_port  = request.form.get('src_port', 'any').strip() or 'any',
+        dst_port  = request.form.get('dst_port', 'any').strip() or 'any',
+        tcp_flags = request.form.get('tcp_flags', '').strip(),
+        action    = request.form.get('action', 'alert'),
+        severity  = request.form.get('severity', 'medium'),
+        active    = True,
+    ))
+    db.session.commit()
+    flash('Règle NIDS ajoutée.', 'success')
+    return redirect(url_for('ids_policy', type='nids'))
+
+@app.route('/ids/policy/nids/toggle/<int:rule_id>')
+def ids_toggle_nids_rule(rule_id):
+    r = NidsRule.query.get_or_404(rule_id)
+    r.active = not r.active
+    db.session.commit()
+    return redirect(url_for('ids_policy', type='nids'))
+
+@app.route('/ids/policy/nids/delete/<int:rule_id>')
+def ids_delete_nids_rule(rule_id):
+    db.session.delete(NidsRule.query.get_or_404(rule_id))
+    db.session.commit()
+    flash('Règle NIDS supprimée.', 'info')
+    return redirect(url_for('ids_policy', type='nids'))
 
 @app.route('/ids/policy/add', methods=['POST'])
 def ids_add_policy():

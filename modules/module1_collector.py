@@ -833,14 +833,137 @@ class NetworkCapture(threading.Thread):
 
     Lance un thread sniff par interface (y compris lo) pour capturer
     TOUT le trafic, qu'il soit local (loopback) ou externe.
+    Applique aussi les règles NIDS personnalisées depuis la DB.
     """
 
-    def __init__(self):
+    def __init__(self, app=None):
         super().__init__(daemon=True, name='NetworkCapture')
         self._count = 0
         self._rules_mtime = 0
         self._pkt_count = 0
         self._lock = threading.Lock()
+        self._app = app
+        self._db_rules = []        # Règles NIDS compilées depuis la DB
+        self._db_dedup = {}        # (rule_id, src_ip) → last_alert_ts
+        self._db_last_reload = 0
+
+    # ── Compilation et matching des règles DB ──────────────────────────────
+    def _compile_db_rule(self, r):
+        """Compile une NidsRule pour un matching rapide."""
+        try:
+            src_net = self._parse_cidr(r.src_ip)
+            dst_net = self._parse_cidr(r.dst_ip)
+            src_pr  = self._parse_port_range(r.src_port)
+            dst_pr  = self._parse_port_range(r.dst_port)
+            flags   = set(f.strip().lower() for f in (r.tcp_flags or '').split('|') if f.strip())
+            return {
+                'id': r.id, 'name': r.name,
+                'version': r.version, 'protocol': r.protocol.lower(),
+                'src_net': src_net, 'dst_net': dst_net,
+                'src_port_range': src_pr, 'dst_port_range': dst_pr,
+                'tcp_flags': flags,
+                'action': r.action.lower(), 'severity': r.severity,
+            }
+        except Exception as e:
+            print(f'[MODULE 1] NIDS: règle #{r.id} ignorée ({e})', file=sys.stderr)
+            return None
+
+    @staticmethod
+    def _parse_cidr(s):
+        """Parse une IP/CIDR. Retourne (network_int, mask_int) ou None pour any."""
+        s = (s or '').strip()
+        if not s or s in ('any', '0.0.0.0/0', '*'):
+            return None
+        try:
+            if '/' in s:
+                ip, bits = s.split('/')
+                bits = int(bits)
+            else:
+                ip, bits = s, 32
+            ip_int = _ip_to_int(ip)
+            mask = (0xFFFFFFFF << (32 - bits)) & 0xFFFFFFFF
+            return (ip_int & mask, mask)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _parse_port_range(s):
+        """Parse un port range. Retourne (lo, hi) ou None pour any."""
+        s = (s or '').strip()
+        if not s or s.lower() == 'any' or s == '*':
+            return None
+        try:
+            if '-' in s:
+                a, b = s.split('-')
+                return (int(a), int(b))
+            p = int(s)
+            return (p, p)
+        except Exception:
+            return None
+
+    def _load_db_rules(self):
+        """Recharge les règles depuis la DB."""
+        if not self._app:
+            return
+        try:
+            with self._app.app_context():
+                from models import NidsRule
+                rules = NidsRule.query.filter_by(active=True).all()
+                compiled = []
+                for r in rules:
+                    c = self._compile_db_rule(r)
+                    if c:
+                        compiled.append(c)
+                self._db_rules = compiled
+                self._db_last_reload = time.time()
+                print(f'[MODULE 1] NIDS DB: {len(compiled)} règle(s) DB chargée(s)',
+                      file=sys.stderr)
+        except Exception as e:
+            print(f'[MODULE 1] NIDS DB ERROR: {e}', file=sys.stderr)
+
+    def _match_db_rule(self, rule, src, dst, sport, dport, proto, flags_int):
+        """Test si un paquet match une règle DB compilée."""
+        # Version (TODO: ipv6)
+        if rule['version'] not in ('any', 'ipv4'):
+            return False
+        # Protocol
+        if rule['protocol'] not in ('any', proto.lower()):
+            return False
+        # IPs
+        if rule['src_net']:
+            try:
+                src_int = _ip_to_int(src)
+                if (src_int & rule['src_net'][1]) != rule['src_net'][0]:
+                    return False
+            except Exception:
+                return False
+        if rule['dst_net']:
+            try:
+                dst_int = _ip_to_int(dst)
+                if (dst_int & rule['dst_net'][1]) != rule['dst_net'][0]:
+                    return False
+            except Exception:
+                return False
+        # Ports
+        if rule['src_port_range']:
+            lo, hi = rule['src_port_range']
+            if not (lo <= sport <= hi):
+                return False
+        if rule['dst_port_range']:
+            lo, hi = rule['dst_port_range']
+            if not (lo <= dport <= hi):
+                return False
+        # TCP flags (si spécifiés)
+        if rule['tcp_flags'] and proto.lower() == 'tcp':
+            # Mapping flag name → bit
+            flag_bits = {'fin': 0x01, 'syn': 0x02, 'rst': 0x04, 'psh': 0x08,
+                         'ack': 0x10, 'urg': 0x20}
+            wanted_bits = 0
+            for f in rule['tcp_flags']:
+                wanted_bits |= flag_bits.get(f, 0)
+            if wanted_bits and (flags_int & wanted_bits) == 0:
+                return False
+        return True
 
     def _handle(self, pkt):
         """Callback partagé entre tous les threads sniff."""
@@ -879,49 +1002,109 @@ class NetworkCapture(threading.Thread):
             print(f'[MODULE 1] NIDS DEBUG pkt#{self._count}: {src} → {dst}',
                   file=sys.stderr)
 
-        # Hot reload des règles toutes les 500 paquets
+        # Hot reload des règles fichier toutes les 500 paquets
         if self._count % 500 == 0:
             try:
                 mt = os.path.getmtime(NIDS_RULES_FILE)
                 if mt != self._rules_mtime:
                     self._rules_mtime = mt
                     _load_nids_rules()
-                    print(f'[MODULE 1] NIDS: règles rechargées', file=sys.stderr)
+                    print(f'[MODULE 1] NIDS: règles fichier rechargées', file=sys.stderr)
             except Exception:
                 pass
 
-        port  = 0
+        # Hot reload des règles DB toutes les 30 secondes
+        if time.time() - self._db_last_reload > 30:
+            self._load_db_rules()
+
+        sport = 0
+        dport = 0
         proto = 'OTHER'
         flags = 0
         raw_payload = b''
 
         if TCP in pkt:
             proto = 'TCP'
-            port  = pkt[TCP].dport
+            sport = pkt[TCP].sport
+            dport = pkt[TCP].dport
             flags = int(pkt[TCP].flags)
             if Raw in pkt:
                 raw_payload = bytes(pkt[Raw].load)
         elif UDP in pkt:
             proto = 'UDP'
-            port  = pkt[UDP].dport
+            sport = pkt[UDP].sport
+            dport = pkt[UDP].dport
             if Raw in pkt:
                 raw_payload = bytes(pkt[Raw].load)
 
         # Ignorer les ports Flask
-        if port in (5000, 5001):
+        if dport in (5000, 5001) or sport in (5000, 5001):
             return
 
-        _apply_rules(src, dst, port, proto, raw_payload, flags)
+        # Règles NIDS depuis la DB (custom)
+        self._apply_db_rules(src, dst, sport, dport, proto, flags)
+
+        # Règles NIDS fichier (par défaut)
+        _apply_rules(src, dst, dport, proto, raw_payload, flags)
+
+    def _apply_db_rules(self, src, dst, sport, dport, proto, flags):
+        """Applique les règles NIDS personnalisées depuis la DB."""
+        now = time.time()
+        for rule in self._db_rules:
+            if not self._match_db_rule(rule, src, dst, sport, dport, proto, flags):
+                continue
+
+            # Action 'accept' = whitelist, ne génère pas d'alerte
+            if rule['action'] == 'accept':
+                return  # Skip toute autre règle pour ce paquet
+
+            # Déduplication par (rule_id, src) — 60s
+            dedup_key = (rule['id'], src)
+            if now - self._db_dedup.get(dedup_key, 0) < 60:
+                continue
+            self._db_dedup[dedup_key] = now
+
+            # Action 'deny' ou 'alert' = générer un event
+            severity = 'critical' if rule['action'] == 'deny' else rule['severity']
+            action_label = 'BLOQUÉ' if rule['action'] == 'deny' else 'ALERTE'
+            raw_msg = (f"{action_label} (règle #{rule['id']} '{rule['name']}'): "
+                       f"{src}:{sport} → {dst}:{dport} ({proto})")
+            write_event(
+                username=src,
+                resource='network_scanner',
+                task='network_access',
+                execution_date=datetime.utcnow(),
+                source=f'nids/rule_{rule["id"]}',
+                raw=raw_msg
+            )
+            with self._lock:
+                sniffer_status['alerts'] = sniffer_status.get('alerts', 0) + 1
 
     def _sniff_iface(self, iface):
-        """Lance sniff() sur une interface spécifique (thread dédié)."""
-        try:
-            from scapy.all import sniff
-            print(f'[MODULE 1] NIDS: sniff démarré sur {iface}', file=sys.stderr)
-            sniff(iface=iface, prn=self._handle, store=False)
-        except Exception as e:
-            print(f'[MODULE 1] NIDS ERROR sur {iface}: {e}', file=sys.stderr)
-            status['errors'].append(f'NetworkCapture({iface}): {e}')
+        """Lance sniff() sur une interface spécifique (thread dédié).
+        Auto-restart si l'interface tombe (network down), avec backoff."""
+        from scapy.all import sniff
+        retry_delay = 5
+        max_delay = 60
+
+        while True:
+            try:
+                print(f'[MODULE 1] NIDS: sniff démarré sur {iface}', file=sys.stderr)
+                sniff(iface=iface, prn=self._handle, store=False)
+                # Si sniff retourne (interface fermée), on retry
+                print(f'[MODULE 1] NIDS: sniff sur {iface} arrêté, retry dans {retry_delay}s',
+                      file=sys.stderr)
+            except Exception as e:
+                msg = str(e)
+                # Network down = interface inactive, skip silencieusement
+                if 'Network is down' in msg or 'No such device' in msg:
+                    print(f'[MODULE 1] NIDS: {iface} inactive, ignorée', file=sys.stderr)
+                    return
+                print(f'[MODULE 1] NIDS ERROR sur {iface}: {e}', file=sys.stderr)
+                status['errors'].append(f'NetworkCapture({iface}): {e}')
+
+            time.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, max_delay)
 
     def run(self):
         try:
@@ -936,11 +1119,14 @@ class NetworkCapture(threading.Thread):
             status['errors'].append('NetworkCapture: droits root requis (sudo)')
             return
 
-        # Charger les règles
+        # Charger les règles fichier
         n = _load_nids_rules()
         print(f'[MODULE 1] NIDS: {n} règles chargées depuis {NIDS_RULES_FILE}',
               file=sys.stderr)
         self._rules_mtime = os.path.getmtime(NIDS_RULES_FILE)
+
+        # Charger les règles DB
+        self._load_db_rules()
 
         # Lister TOUTES les interfaces (y compris lo)
         try:
@@ -1399,7 +1585,7 @@ def start(app=None):
     else:
         LinuxLogCollector().start()
 
-    NetworkCapture().start()
+    NetworkCapture(app).start()  # Passer app pour accès DB (règles NIDS)
     FileIntegrityMonitor().start()
     ProcessMonitor().start()
     if SYSTEM != 'Windows':
