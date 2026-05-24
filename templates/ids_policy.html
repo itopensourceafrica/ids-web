@@ -19,6 +19,7 @@
       <a href="/ids/policy/export" class="btn btn-outline btn-sm" title="Exporter vers policy.conf"><i class="fas fa-file-export"></i> Exporter</a>
       <a href="/ids/policy/download" class="btn btn-outline btn-sm" title="Télécharger policy.conf"><i class="fas fa-download"></i> Télécharger</a>
       <form method="POST" action="/ids/policy/import" style="display:inline">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="replace" value="1">
         <button type="submit" class="btn btn-outline btn-sm" title="Importer depuis policy.conf"><i class="fas fa-file-import"></i> Importer</button>
       </form>
@@ -47,6 +48,7 @@
   <div class="card-header"><h6>Ajouter une règle NIDS</h6></div>
   <div class="card-body">
     <form method="POST" action="/ids/policy/nids/add">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <div style="display:grid; grid-template-columns: repeat(9, 1fr); gap:10px; align-items:end">
         <div class="f-group" style="margin:0">
           <label class="f-label" style="font-size:11px">Name</label>
@@ -174,6 +176,7 @@
       <div class="card-header"><h6>Ajouter une règle HIDS</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/policy/add">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="f-group">
             <label class="f-label">Utilisateur</label>
             <select name="user_id" class="f-select" required>

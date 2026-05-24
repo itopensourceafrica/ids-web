@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>IDS — Connexion</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-card {
+      background: #fff;
+      color: #111827;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 420px;
+      padding: 40px;
+    }
+    .login-brand {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .login-brand i {
+      font-size: 48px;
+      color: #3b6ef0;
+      margin-bottom: 12px;
+    }
+    .login-brand h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #111827;
+    }
+    .login-brand p {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    .f-group { margin-bottom: 16px; }
+    .f-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .f-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+    .f-input:focus {
+      outline: none;
+      border-color: #3b6ef0;
+      box-shadow: 0 0 0 3px rgba(59,110,240,.15);
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: #3b6ef0;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn:hover { background: #2952cc; }
+    .flash {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .flash-danger { background: #fef2f2; color: #dc2626; border-left: 3px solid #dc2626; }
+    .flash-info { background: #eff6ff; color: #1e40af; border-left: 3px solid #3b6ef0; }
+    .flash-success { background: #f0fdf4; color: #16a34a; border-left: 3px solid #16a34a; }
+    .login-footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-brand">
+      <i class="fas fa-shield-halved"></i>
+      <h1>IDS Web</h1>
+      <p>Système de détection d'intrusions</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ 'danger' if cat == 'danger' else 'info' if cat == 'info' else 'success' }}">
+            <i class="fas fa-{{ 'circle-exclamation' if cat == 'danger' else 'info-circle' }}"></i>
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/login">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+
+      <div class="f-group">
+        <label class="f-label">Utilisateur</label>
+        <input type="text" name="username" class="f-input" autocomplete="username"
+               required autofocus>
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">Mot de passe</label>
+        <input type="password" name="password" class="f-input"
+               autocomplete="current-password" required>
+      </div>
+
+      <button type="submit" class="btn">
+        <i class="fas fa-right-to-bracket"></i> Se connecter
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <i class="fas fa-lock"></i> Connexion chiffrée requise
+    </div>
+  </div>
+</body>
+</html>

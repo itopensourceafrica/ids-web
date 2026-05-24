@@ -608,6 +608,11 @@
         <div class="nav-dd-sep"></div>
         <a href="/ids/nids"      class="{{ 'active' if p == '/ids/nids' }}"><i class="fas fa-broadcast-tower"></i> NIDS Réseau</a>
         <a href="/ids/settings"  class="{{ 'active' if p == '/ids/settings' }}"><i class="fas fa-gear"></i> Paramètres</a>
+        {% set u = current_user() %}
+        {% if u and u.is_admin %}
+          <div class="nav-dd-sep"></div>
+          <a href="/admin/users" class="{{ 'active' if p == '/admin/users' }}"><i class="fas fa-user-shield"></i> Comptes web</a>
+        {% endif %}
       </div>
     </div>
 
@@ -616,6 +621,19 @@
         <div class="status-dot"></div>
         <span class="status-text">Actif</span>
       </div>
+      {% set u = current_user() %}
+      {% if u %}
+        <div class="nav-dd" style="margin-left:8px">
+          <span class="nl" style="cursor:pointer">
+            <i class="fas fa-user-circle ico"></i> {{ u.username }} <i class="fas fa-chevron-down caret"></i>
+          </span>
+          <div class="nav-dd-menu">
+            <a href="/account/password"><i class="fas fa-key"></i> Mot de passe</a>
+            <div class="nav-dd-sep"></div>
+            <a href="/logout"><i class="fas fa-right-from-bracket"></i> Déconnexion</a>
+          </div>
+        </div>
+      {% endif %}
     </div>
   </div>
 </nav>

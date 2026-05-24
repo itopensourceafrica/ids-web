@@ -10,6 +10,7 @@
       <div class="card-header"><h6>Ajouter une ressource</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/resources/add">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="f-group"><label class="f-label">Nom</label><input type="text" name="name" class="f-input" placeholder="ex: database" required></div>
           <div class="f-group"><label class="f-label">Description</label><input type="text" name="description" class="f-input" placeholder="Optionnel"></div>
           <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Ajouter</button>

@@ -8,19 +8,57 @@ import os
 import sys
 import json
 import queue
+import secrets
 import time as time_module
+from datetime import datetime, timedelta
 from flask import (Flask, render_template, request, redirect,
-                   url_for, flash, Response, stream_with_context)
+                   url_for, flash, Response, stream_with_context, session, abort)
 from models import (db, Alert, Resource, IDSUser, AccessPolicy,
-                    EventFile, EventEntry, Intrusion, NidsRule)
-from datetime import datetime
+                    EventFile, EventEntry, Intrusion, NidsRule,
+                    WebUser, AuditLog)
+from auth import (login_required, admin_required, editor_required,
+                  csrf_protect, generate_csrf_token, validate_csrf,
+                  login_user, logout_user, current_user, log_action,
+                  ensure_default_admin)
 
 app = Flask(__name__)
-app.config['SECRET_KEY']                  = 'ids_super_secret_2026'
-app.config['SQLALCHEMY_DATABASE_URI']     = 'sqlite:///ids.db'
+
+# ── Configuration sécurité (SECRET_KEY via env var) ──────────────
+# Génère un secret aléatoire si non défini (logout tous les utilisateurs au restart)
+app.config['SECRET_KEY'] = os.environ.get('IDS_SECRET_KEY') or secrets.token_hex(32)
+app.config['SQLALCHEMY_DATABASE_URI']        = 'sqlite:///ids.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_HTTPONLY']        = True
+app.config['SESSION_COOKIE_SAMESITE']        = 'Lax'
+app.config['SESSION_COOKIE_SECURE']          = os.environ.get('IDS_HTTPS') == '1'
+app.config['PERMANENT_SESSION_LIFETIME']     = timedelta(hours=8)
 
 db.init_app(app)
+
+# ── CSRF token disponible dans tous les templates ────────────────
+@app.context_processor
+def inject_csrf():
+    return {'csrf_token': generate_csrf_token, 'current_user': current_user}
+
+# ── Validation CSRF automatique sur tous les POST ────────────────
+@app.before_request
+def csrf_validate_all():
+    # Exempter login (token donné dans la page)
+    if request.method == 'POST' and request.endpoint not in (None, 'login'):
+        token = request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token')
+        if not validate_csrf(token):
+            abort(403, 'CSRF token invalide ou manquant')
+
+# ── Auth requise sur toute l'app sauf /login et /favicon ─────────
+@app.before_request
+def require_login_globally():
+    public = {'login', 'static', None}
+    if request.endpoint in public:
+        return
+    if request.path == '/favicon.ico':
+        return
+    if 'user_id' not in session:
+        return redirect(url_for('login', next=request.path))
 
 # File partagée entre Module 2 et Module 4
 _alert_queue: queue.Queue = queue.Queue()
@@ -39,14 +77,16 @@ def _start_modules():
     from modules import module2_analyzer  as m2
     from modules import module3_policy    as m3
     from modules import module4_alerter   as m4
+    from modules import module5_maintenance as m5
 
     m3.start(app)           # Politique d'abord (les autres en dépendent)
     time_module.sleep(1)    # Laisser la politique se charger
     m1.start(app)           # Collecteur d'événements
     m2.start(app, _alert_queue)  # Analyseur
     m4.start(app, _alert_queue)  # Générateur d'alertes
+    m5.start(app)           # Maintenance / housekeeping
 
-    print('[IDS] Les 4 modules sont démarrés.', file=sys.stderr)
+    print('[IDS] Les 5 modules sont démarrés.', file=sys.stderr)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -57,6 +97,170 @@ def _start_modules():
 def favicon():
     return Response(status=204)
 
+
+# ══════════════════════════════════════════════════════════════════
+# AUTHENTIFICATION
+# ══════════════════════════════════════════════════════════════════
+
+# Brute force tracker (en mémoire, par IP)
+_login_attempts = {}  # ip → [timestamps]
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW = 300  # 5 minutes
+
+def _is_brute_force(ip):
+    """Vérifie si une IP a trop d'échecs récents."""
+    now = time_module.time()
+    attempts = [t for t in _login_attempts.get(ip, []) if now - t < LOGIN_WINDOW]
+    _login_attempts[ip] = attempts
+    return len(attempts) >= LOGIN_MAX_ATTEMPTS
+
+def _record_failed_login(ip):
+    _login_attempts.setdefault(ip, []).append(time_module.time())
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+
+    if request.method == 'POST':
+        # Validation CSRF manuelle (la global before_request exempte /login)
+        token = request.form.get('_csrf_token')
+        if not validate_csrf(token):
+            flash('Token CSRF invalide. Rechargez la page.', 'danger')
+            return redirect(url_for('login'))
+
+        if _is_brute_force(ip):
+            flash('Trop de tentatives échouées. Réessayez dans 5 minutes.', 'danger')
+            return redirect(url_for('login'))
+
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+
+        user = WebUser.query.filter_by(username=username, active=True).first()
+        if user and user.check_password(password):
+            login_user(user)
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+            log_action('login', target=username)
+            _login_attempts.pop(ip, None)
+
+            next_url = request.form.get('next') or url_for('index')
+            if not next_url.startswith('/'):
+                next_url = url_for('index')
+            return redirect(next_url)
+        else:
+            _record_failed_login(ip)
+            flash('Identifiants invalides.', 'danger')
+            return redirect(url_for('login'))
+
+    # GET
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    if 'user_id' in session:
+        log_action('logout', target=session.get('username', ''))
+    logout_user()
+    flash('Déconnexion réussie.', 'info')
+    return redirect(url_for('login'))
+
+
+@app.route('/account/password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    user = current_user()
+    if request.method == 'POST':
+        current_pwd = request.form.get('current_password', '')
+        new_pwd = request.form.get('new_password', '')
+        confirm = request.form.get('confirm_password', '')
+
+        if not user.check_password(current_pwd):
+            flash('Mot de passe actuel incorrect.', 'danger')
+            return redirect(url_for('change_password'))
+        if len(new_pwd) < 8:
+            flash('Le nouveau mot de passe doit avoir au moins 8 caractères.', 'danger')
+            return redirect(url_for('change_password'))
+        if new_pwd != confirm:
+            flash('Les mots de passe ne correspondent pas.', 'danger')
+            return redirect(url_for('change_password'))
+
+        user.set_password(new_pwd)
+        db.session.commit()
+        log_action('password_change', target=user.username)
+        flash('Mot de passe modifié avec succès.', 'success')
+        return redirect(url_for('index'))
+
+    return render_template('change_password.html', user=user)
+
+
+# ══════════════════════════════════════════════════════════════════
+# GESTION DES UTILISATEURS WEB (admin only)
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    return render_template('admin_users.html',
+        users=WebUser.query.order_by(WebUser.username).all(),
+        recent_audit=AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(30).all(),
+    )
+
+@app.route('/admin/users/add', methods=['POST'])
+@admin_required
+def admin_add_user():
+    username = request.form['username'].strip()
+    password = request.form['password']
+    role     = request.form.get('role', 'viewer')
+
+    if WebUser.query.filter_by(username=username).first():
+        flash(f"L'utilisateur '{username}' existe déjà.", 'warning')
+        return redirect(url_for('admin_users'))
+    if len(password) < 8:
+        flash('Mot de passe trop court (8 caractères minimum).', 'danger')
+        return redirect(url_for('admin_users'))
+    if role not in ('admin', 'analyst', 'viewer'):
+        flash('Rôle invalide.', 'danger')
+        return redirect(url_for('admin_users'))
+
+    u = WebUser(username=username, role=role, active=True)
+    u.set_password(password)
+    db.session.add(u)
+    db.session.commit()
+    log_action('user_create', target=username, details=f'role={role}')
+    flash(f"Utilisateur '{username}' créé.", 'success')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/users/toggle/<int:user_id>')
+@admin_required
+def admin_toggle_user(user_id):
+    u = WebUser.query.get_or_404(user_id)
+    if u.id == session.get('user_id'):
+        flash('Vous ne pouvez pas désactiver votre propre compte.', 'danger')
+        return redirect(url_for('admin_users'))
+    u.active = not u.active
+    db.session.commit()
+    log_action('user_toggle', target=u.username, details=f'active={u.active}')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/users/delete/<int:user_id>')
+@admin_required
+def admin_delete_user(user_id):
+    u = WebUser.query.get_or_404(user_id)
+    if u.id == session.get('user_id'):
+        flash('Vous ne pouvez pas supprimer votre propre compte.', 'danger')
+        return redirect(url_for('admin_users'))
+    name = u.username
+    db.session.delete(u)
+    db.session.commit()
+    log_action('user_delete', target=name)
+    flash(f"Utilisateur '{name}' supprimé.", 'info')
+    return redirect(url_for('admin_users'))
+
+
+# ══════════════════════════════════════════════════════════════════
+# DASHBOARD
+# ══════════════════════════════════════════════════════════════════
 
 @app.route('/')
 def index():
@@ -71,17 +275,94 @@ def index():
     )
 
 
+def _alerts_query(args):
+    """Construit la query Alert avec filtres optionnels."""
+    q = Alert.query
+
+    # Filtre sévérité
+    sev = args.get('severity')
+    if sev in ('critical', 'high', 'medium', 'low'):
+        q = q.filter(Alert.severity == sev)
+
+    # Filtre statut
+    status_f = args.get('status')
+    if status_f == 'unack':
+        q = q.filter(Alert.acknowledged == False)
+    elif status_f == 'ack':
+        q = q.filter(Alert.acknowledged == True)
+
+    # Filtre recherche texte
+    search = args.get('q', '').strip()
+    if search:
+        q = q.filter(Alert.message.ilike(f'%{search}%'))
+
+    # Filtre date
+    days = args.get('days')
+    if days:
+        try:
+            cutoff = datetime.utcnow() - timedelta(days=int(days))
+            q = q.filter(Alert.timestamp >= cutoff)
+        except ValueError:
+            pass
+
+    return q.order_by(Alert.timestamp.desc())
+
+
 @app.route('/alerts')
 def alerts():
+    page = max(1, int(request.args.get('page', 1) or 1))
+    per_page = min(200, int(request.args.get('per_page', 50) or 50))
+
+    q = _alerts_query(request.args)
+    total = q.count()
+    items = q.limit(per_page).offset((page - 1) * per_page).all()
+    pages = (total + per_page - 1) // per_page
+
     return render_template('alerts.html',
-        alerts=Alert.query.order_by(Alert.timestamp.desc()).all())
+        alerts=items,
+        page=page, per_page=per_page, pages=pages, total=total,
+        filter_sev=request.args.get('severity', ''),
+        filter_status=request.args.get('status', ''),
+        filter_days=request.args.get('days', ''),
+        filter_q=request.args.get('q', ''),
+    )
+
+
+@app.route('/alerts/export.csv')
+def alerts_export_csv():
+    """Export CSV des alertes filtrées (max 10000 lignes)."""
+    import csv
+    import io
+    q = _alerts_query(request.args)
+    rows = q.limit(10000).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['id', 'timestamp', 'severity', 'acknowledged', 'message'])
+    for a in rows:
+        writer.writerow([
+            a.id,
+            a.timestamp.strftime('%Y-%m-%d %H:%M:%S') if a.timestamp else '',
+            a.severity or '',
+            '1' if a.acknowledged else '0',
+            (a.message or '').replace('\n', ' ').replace('\r', ''),
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename=alerts_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+        }
+    )
+
 
 @app.route('/ack_alert/<int:alert_id>')
 def ack_alert(alert_id):
     alert = Alert.query.get_or_404(alert_id)
     alert.acknowledged = True
     db.session.commit()
-    return redirect(url_for('alerts'))
+    return redirect(url_for('alerts', **{k: v for k, v in request.args.items()}))
 
 @app.route('/ack_all_alerts')
 def ack_all_alerts():
@@ -598,7 +879,7 @@ def ids_settings():
         action = request.form.get('action')
 
         if action == 'smtp':
-            smtp = {
+            cfg['smtp'] = {
                 'host':     request.form.get('smtp_host', ''),
                 'port':     int(request.form.get('smtp_port', 587)),
                 'user':     request.form.get('smtp_user', ''),
@@ -608,17 +889,30 @@ def ids_settings():
                 'tls':      request.form.get('smtp_tls') == 'on',
             }
             with open(config_file, 'w') as f:
-                _json.dump({'smtp': smtp}, f, indent=2)
-            # Reload SMTP config in Module 4
-            from modules import module4_alerter as m4
-            m4.status  # trigger import; reload config on next alert
+                _json.dump(cfg, f, indent=2)
+            log_action('config_update', target='smtp')
             flash('Configuration SMTP sauvegardée.', 'success')
+
+        elif action == 'webhooks':
+            cfg['slack_webhook']   = request.form.get('slack_webhook', '').strip()
+            cfg['discord_webhook'] = request.form.get('discord_webhook', '').strip()
+            cfg['teams_webhook']   = request.form.get('teams_webhook', '').strip()
+            cfg['min_severity']    = request.form.get('min_severity', 'low')
+            cfg['syslog'] = {
+                'host': request.form.get('syslog_host', '').strip(),
+                'port': int(request.form.get('syslog_port', 514) or 514),
+            }
+            with open(config_file, 'w') as f:
+                _json.dump(cfg, f, indent=2)
+            log_action('config_update', target='webhooks')
+            flash('Configuration webhooks sauvegardée (rechargée automatiquement).', 'success')
 
         elif action == 'integrity':
             paths = request.form.get('integrity_paths', '')
             with open(integrity_file, 'w', encoding='utf-8') as f:
                 f.write('# Fichiers surveillés — un chemin par ligne\n')
                 f.write(paths.strip() + '\n')
+            log_action('config_update', target='integrity')
             flash('Fichiers surveillés sauvegardés. Redémarrez le collecteur pour appliquer.', 'success')
 
         return redirect(url_for('ids_settings'))
@@ -626,6 +920,7 @@ def ids_settings():
     smtp = cfg.get('smtp', {})
     return render_template('ids_settings.html',
         smtp=smtp,
+        webhooks=cfg,
         integrity_paths=integrity_paths,
         config_file=config_file,
         integrity_file=integrity_file)
@@ -702,6 +997,8 @@ def _load_policy_direct_helper(flask_app):
 with app.app_context():
     db.create_all()
     _seed()
+    # Compte admin par défaut (admin/admin si IDS_ADMIN_PASSWORD non défini)
+    ensure_default_admin(app)
     # Export policy.conf si absent
     from modules import module3_policy as _m3
     if not os.path.exists(_m3.POLICY_FILE):

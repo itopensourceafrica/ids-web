@@ -144,6 +144,200 @@ def _send_email(subject: str, body: str, cfg: dict):
         status['errors'].append(f'Email: {e}')
 
 
+# ── Webhooks Slack / Discord / Teams ────────────────────────────────────────
+
+SEVERITY_COLOR = {
+    'critical': '#dc2626',  # rouge
+    'high':     '#ea580c',  # orange foncé
+    'medium':   '#f59e0b',  # ambre
+    'low':      '#22c55e',  # vert
+}
+SEVERITY_EMOJI = {
+    'critical': '🚨',
+    'high':     '⚠️',
+    'medium':   '🔔',
+    'low':      'ℹ️',
+}
+
+
+def _send_slack(url: str, data: dict):
+    """Envoie l'alerte vers un webhook Slack (format Block Kit)."""
+    import urllib.request, json
+    event     = data.get('event', {})
+    violation = data.get('violation', {})
+    sev       = violation.get('severity', 'high')
+    emoji     = SEVERITY_EMOJI.get(sev, '⚠️')
+
+    payload = {
+        'attachments': [{
+            'color': SEVERITY_COLOR.get(sev, '#666'),
+            'fallback': f'{emoji} IDS Alerte {sev.upper()}: {violation.get("message", "")}',
+            'blocks': [
+                {'type': 'header', 'text': {
+                    'type': 'plain_text',
+                    'text': f'{emoji} IDS — Alerte {sev.upper()}'
+                }},
+                {'type': 'section', 'fields': [
+                    {'type': 'mrkdwn', 'text': f'*Utilisateur:*\n{event.get("username", "?")}'},
+                    {'type': 'mrkdwn', 'text': f'*Tâche:*\n{event.get("task", "?")}'},
+                    {'type': 'mrkdwn', 'text': f'*Ressource:*\n{event.get("resource", "?")}'},
+                    {'type': 'mrkdwn', 'text': f'*Source:*\n{event.get("source", "?")}'},
+                ]},
+                {'type': 'section', 'text': {
+                    'type': 'mrkdwn',
+                    'text': f'*Violation:* {violation.get("message", "?")}'
+                }},
+                {'type': 'context', 'elements': [{
+                    'type': 'mrkdwn',
+                    'text': f'_Type: {violation.get("type", "?")} | '
+                            f'{data.get("detected_at", "")[:19].replace("T", " ")} UTC_'
+                }]},
+            ]
+        }]
+    }
+
+    try:
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        urllib.request.urlopen(req, timeout=5).close()
+    except Exception as e:
+        status['errors'].append(f'Slack: {e}')
+
+
+def _send_discord(url: str, data: dict):
+    """Envoie l'alerte vers un webhook Discord."""
+    import urllib.request, json
+    event     = data.get('event', {})
+    violation = data.get('violation', {})
+    sev       = violation.get('severity', 'high')
+    emoji     = SEVERITY_EMOJI.get(sev, '⚠️')
+
+    # Convertir couleur hex → int pour Discord
+    color_hex = SEVERITY_COLOR.get(sev, '#666666').lstrip('#')
+    color_int = int(color_hex, 16)
+
+    payload = {
+        'username': 'IDS Web',
+        'embeds': [{
+            'title': f'{emoji} Alerte {sev.upper()}',
+            'description': violation.get('message', ''),
+            'color': color_int,
+            'fields': [
+                {'name': 'Utilisateur', 'value': event.get('username', '?'), 'inline': True},
+                {'name': 'Tâche',       'value': event.get('task', '?'),     'inline': True},
+                {'name': 'Ressource',   'value': event.get('resource', '?'), 'inline': True},
+                {'name': 'Source',      'value': event.get('source', '?'),   'inline': False},
+                {'name': 'Type',        'value': violation.get('type', '?'), 'inline': True},
+            ],
+            'footer': {'text': f'IDS Web | {data.get("detected_at", "")[:19].replace("T", " ")} UTC'},
+        }]
+    }
+
+    try:
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        urllib.request.urlopen(req, timeout=5).close()
+    except Exception as e:
+        status['errors'].append(f'Discord: {e}')
+
+
+def _send_teams(url: str, data: dict):
+    """Envoie l'alerte vers un webhook MS Teams (MessageCard)."""
+    import urllib.request, json
+    event     = data.get('event', {})
+    violation = data.get('violation', {})
+    sev       = violation.get('severity', 'high')
+
+    payload = {
+        '@type': 'MessageCard',
+        '@context': 'http://schema.org/extensions',
+        'themeColor': SEVERITY_COLOR.get(sev, '#666666').lstrip('#'),
+        'summary': f'IDS Alerte {sev.upper()}',
+        'sections': [{
+            'activityTitle': f'IDS — Alerte {sev.upper()}',
+            'activitySubtitle': violation.get('message', ''),
+            'facts': [
+                {'name': 'Utilisateur', 'value': event.get('username', '?')},
+                {'name': 'Tâche',       'value': event.get('task', '?')},
+                {'name': 'Ressource',   'value': event.get('resource', '?')},
+                {'name': 'Source',      'value': event.get('source', '?')},
+                {'name': 'Type',        'value': violation.get('type', '?')},
+            ],
+        }]
+    }
+
+    try:
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        urllib.request.urlopen(req, timeout=5).close()
+    except Exception as e:
+        status['errors'].append(f'Teams: {e}')
+
+
+# ── Syslog forwarding (SIEM intégration) ────────────────────────────────────
+
+# Mapping IDS severity → syslog severity (RFC 5424)
+SYSLOG_SEVERITY = {
+    'critical': 2,  # critical
+    'high':     3,  # error
+    'medium':   4,  # warning
+    'low':      6,  # info
+}
+
+def _send_syslog(host: str, port: int, data: dict):
+    """Envoie l'alerte au format syslog vers un SIEM (Splunk/ELK/Wazuh)."""
+    import socket as _socket
+    event     = data.get('event', {})
+    violation = data.get('violation', {})
+    sev_text  = violation.get('severity', 'high')
+    sev_num   = SYSLOG_SEVERITY.get(sev_text, 4)
+
+    # Facility = 13 (audit/log), severity = sev_num
+    priority = 13 * 8 + sev_num
+
+    # Format RFC 3164 (BSD syslog)
+    timestamp = datetime.utcnow().strftime('%b %d %H:%M:%S')
+    hostname  = _socket.gethostname()
+
+    msg = (
+        f'<{priority}>{timestamp} {hostname} ids-web: '
+        f'severity={sev_text} '
+        f'user={event.get("username", "?")} '
+        f'task={event.get("task", "?")} '
+        f'resource={event.get("resource", "?")} '
+        f'source={event.get("source", "?")} '
+        f'type={violation.get("type", "?")} '
+        f'msg="{violation.get("message", "?")[:200]}"'
+    )
+
+    try:
+        sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+        sock.sendto(msg.encode('utf-8'), (host, port))
+        sock.close()
+    except Exception as e:
+        status['errors'].append(f'Syslog: {e}')
+
+
+# ── Chargement complet de la config ────────────────────────────────────────
+
+def _load_full_config() -> dict:
+    """Charge ids_config.json complet (smtp, webhooks, syslog)."""
+    import json
+    if not os.path.exists(CONFIG_FILE):
+        return {}
+    try:
+        with open(CONFIG_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 # ── Démon principal ──────────────────────────────────────────────────────────
 
 class AlertDaemon(threading.Thread):
@@ -153,15 +347,71 @@ class AlertDaemon(threading.Thread):
         super().__init__(daemon=True, name='AlertDaemon')
         self.app   = app
         self.queue = alert_queue
-        self._smtp_config = {}
+        self._config = {}
+        self._last_config_load = 0
+
+    def _reload_config_if_needed(self):
+        """Recharge la config toutes les 60s."""
+        now = time.time()
+        if now - self._last_config_load > 60:
+            self._config = _load_full_config()
+            self._last_config_load = now
+
+    def _dispatch(self, data, alert_text):
+        """Envoie l'alerte vers tous les canaux configurés."""
+        event     = data.get('event', {})
+        violation = data.get('violation', {})
+        severity  = violation.get('severity', 'high')
+
+        # Filtre par sévérité minimale (option)
+        min_sev = self._config.get('min_severity', 'low')
+        sev_order = {'low': 0, 'medium': 1, 'high': 2, 'critical': 3}
+        if sev_order.get(severity, 2) < sev_order.get(min_sev, 0):
+            return
+
+        # SMTP
+        smtp = self._config.get('smtp', {})
+        if smtp.get('host') and smtp.get('to'):
+            subject = (
+                f"[IDS ALERTE {severity.upper()}] "
+                f"{event.get('username', '?')} — "
+                f"{event.get('task', '?')} sur {event.get('resource', '?')}"
+            )
+            _send_email(subject, alert_text, smtp)
+
+        # Slack
+        slack_url = self._config.get('slack_webhook', '').strip()
+        if slack_url:
+            _send_slack(slack_url, data)
+
+        # Discord
+        discord_url = self._config.get('discord_webhook', '').strip()
+        if discord_url:
+            _send_discord(discord_url, data)
+
+        # Teams
+        teams_url = self._config.get('teams_webhook', '').strip()
+        if teams_url:
+            _send_teams(teams_url, data)
+
+        # Syslog
+        syslog_cfg = self._config.get('syslog', {})
+        if syslog_cfg.get('host'):
+            _send_syslog(
+                syslog_cfg['host'],
+                int(syslog_cfg.get('port', 514)),
+                data
+            )
 
     def run(self):
         status['running'] = True
-        self._smtp_config = _load_smtp_config()
+        self._config = _load_full_config()
+        self._last_config_load = time.time()
         print('[MODULE 4] Générateur d\'alertes démarré', file=sys.stderr)
 
         while True:
             status['queue_size'] = self.queue.qsize()
+            self._reload_config_if_needed()
 
             try:
                 data = self.queue.get(timeout=2)
@@ -171,22 +421,12 @@ class AlertDaemon(threading.Thread):
             try:
                 alert_text = _format_alert(data)
 
-                # 1. Fichier log
+                # Stockage local
                 _write_alert_log(alert_text)
-
-                # 2. Base de données
                 _save_to_db(data, self.app)
 
-                # 3. Email (si configuré)
-                if self._smtp_config:
-                    event     = data.get('event', {})
-                    violation = data.get('violation', {})
-                    subject = (
-                        f"[IDS ALERTE {violation.get('severity','?').upper()}] "
-                        f"{event.get('username','?')} — "
-                        f"{event.get('task','?')} sur {event.get('resource','?')}"
-                    )
-                    _send_email(subject, alert_text, self._smtp_config)
+                # Dispatch vers tous les canaux configurés
+                self._dispatch(data, alert_text)
 
                 status['alerts_sent'] += 1
                 status['last_alert']  = (

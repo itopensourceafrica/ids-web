@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="pg-head a1">
+  <div>
+    <div class="pg-title">Utilisateurs de l'application</div>
+    <div class="pg-sub">Gestion des comptes admin / analyst / viewer</div>
+  </div>
+  <div><span class="badge badge-blue">{{ users|length }} compte(s)</span></div>
+</div>
+
+<div class="two-col" style="grid-template-columns:380px 1fr">
+  <div class="a2">
+    <div class="card">
+      <div class="card-header"><h6>Ajouter un utilisateur</h6></div>
+      <div class="card-body">
+        <form method="POST" action="/admin/users/add">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+          <div class="f-group">
+            <label class="f-label">Nom d'utilisateur</label>
+            <input type="text" name="username" class="f-input" required>
+          </div>
+
+          <div class="f-group">
+            <label class="f-label">Mot de passe (8+ caractères)</label>
+            <input type="password" name="password" class="f-input" required minlength="8">
+          </div>
+
+          <div class="f-group">
+            <label class="f-label">Rôle</label>
+            <select name="role" class="f-select" required>
+              <option value="viewer">Viewer — lecture seule</option>
+              <option value="analyst">Analyst — peut modifier les règles</option>
+              <option value="admin">Admin — accès total</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full mt-2">
+            <i class="fas fa-user-plus"></i> Créer
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="a3">
+    <div class="card">
+      <div class="card-header"><h6>Comptes</h6></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Statut</th><th>Dernière connexion</th><th>Actions</th></tr></thead>
+          <tbody>
+          {% for u in users %}
+            <tr style="{{ 'opacity:.5' if not u.active else '' }}">
+              <td>
+                <div class="flex items gap-2">
+                  <div class="avatar" style="width:30px;height:30px;background:var(--blue-s);color:var(--blue);font-size:11px">{{ u.username[:2].upper() }}</div>
+                  <strong style="font-size:13.5px">{{ u.username }}</strong>
+                </div>
+              </td>
+              <td>
+                <span class="badge badge-{{ 'red' if u.role == 'admin' else 'amber' if u.role == 'analyst' else 'gray' }}">
+                  {{ u.role }}
+                </span>
+              </td>
+              <td>
+                <span class="badge badge-{{ 'ok' if u.active else 'gray' }}">
+                  {{ 'Actif' if u.active else 'Désactivé' }}
+                </span>
+              </td>
+              <td style="color:var(--text-3);font-size:12px">
+                {{ u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else 'Jamais' }}
+              </td>
+              <td>
+                <div class="flex items gap-1">
+                  <a href="/admin/users/toggle/{{ u.id }}" class="btn btn-outline btn-sm" title="Activer/désactiver"><i class="fas fa-power-off"></i></a>
+                  <a href="/admin/users/delete/{{ u.id }}" onclick="return confirm('Supprimer cet utilisateur ?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><h6>Audit log — Actions récentes</h6></div>
+      <div class="tbl-wrap" style="max-height:380px;overflow-y:auto">
+        <table class="tbl">
+          <thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Cible</th><th>IP</th></tr></thead>
+          <tbody>
+          {% for log in recent_audit %}
+            <tr>
+              <td style="font-size:12px;color:var(--text-3);white-space:nowrap">
+                {{ log.timestamp.strftime('%d/%m %H:%M:%S') }}
+              </td>
+              <td style="font-size:13px"><strong>{{ log.username or 'anonymous' }}</strong></td>
+              <td><span class="badge badge-gray">{{ log.action }}</span></td>
+              <td style="font-size:12px;color:var(--text-3)">{{ log.target or '-' }}</td>
+              <td style="font-size:11px;font-family:monospace;color:var(--text-3)">{{ log.ip_address or '-' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-3)">Aucune action enregistrée</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

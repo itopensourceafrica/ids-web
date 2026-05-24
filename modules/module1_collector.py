@@ -74,10 +74,38 @@ LINUX_LOG_CANDIDATES = [
 
 # ── Fichiers critiques pour l'intégrité ─────────────────────────────────────
 INTEGRITY_FILES = {
-    'Linux':   ['/etc/passwd', '/etc/shadow', '/etc/sudoers',
-                '/etc/hosts', '/etc/crontab'],
-    'Windows': ['C:\\Windows\\System32\\drivers\\etc\\hosts',
-                'C:\\Windows\\System32\\config\\SAM'],
+    'Linux': [
+        '/etc/passwd',
+        '/etc/shadow',
+        '/etc/sudoers',
+        '/etc/hosts',
+        '/etc/crontab',
+        '/etc/ssh/sshd_config',
+        '/etc/pam.d/common-auth',
+        '/etc/pam.d/sudo',
+        '/etc/profile',
+        '/etc/bash.bashrc',
+        '/etc/resolv.conf',
+        '/etc/rc.local',
+    ],
+    'Windows': [
+        r'C:\Windows\System32\drivers\etc\hosts',
+        r'C:\Windows\System32\drivers\etc\networks',
+        r'C:\Windows\System32\drivers\etc\protocol',
+        r'C:\Windows\System32\drivers\etc\services',
+        r'C:\Windows\System32\config\SAM',
+        r'C:\Windows\System32\config\SYSTEM',
+        r'C:\Windows\System32\config\SECURITY',
+        r'C:\Windows\System32\config\SOFTWARE',
+        r'C:\Windows\win.ini',
+        r'C:\Windows\System32\GroupPolicy\Machine\Registry.pol',
+    ],
+    'Darwin': [
+        '/etc/passwd',
+        '/etc/sudoers',
+        '/etc/hosts',
+        '/etc/ssh/sshd_config',
+    ],
 }
 
 INTEGRITY_CONF = os.path.join(BASE_DIR, 'ids_integrity.conf')
@@ -425,6 +453,259 @@ class WindowsLogCollector(threading.Thread):
                         if rid > self._last_record[channel]:
                             self._last_record[channel] = rid
             time.sleep(5)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# COLLECTEUR WINDOWS — Sysmon (équivalent auditd)
+# ════════════════════════════════════════════════════════════════════════════
+
+class SysmonCollector(threading.Thread):
+    """Lit le journal Sysmon — surveillance système avancée sur Windows.
+
+    Sysmon doit être installé séparément:
+      Sysmon64.exe -accepteula -i sysmonconfig.xml
+
+    Event IDs surveillés:
+      1  = Process Create
+      3  = Network Connection
+      7  = Image Loaded (DLL injection)
+      11 = File Create
+      12 = Registry Object Create/Delete
+      13 = Registry Value Set
+      22 = DNS Query
+      25 = Process Tampering
+    """
+
+    SYSMON_CHANNEL = 'Microsoft-Windows-Sysmon/Operational'
+
+    EVENT_MAP = {
+        1:  ('execute',         'system',          'Process créé'),
+        3:  ('network_access',  'network_scanner', 'Connexion réseau'),
+        7:  ('execute',         'system',          'DLL chargée'),
+        11: ('write',           'file_system',     'Fichier créé'),
+        12: ('write',           'registry',        'Clé registre modifiée'),
+        13: ('write',           'registry',        'Valeur registre modifiée'),
+        22: ('network_access',  'network_scanner', 'Requête DNS'),
+        25: ('execute',         'system',          'Process Tampering détecté'),
+    }
+
+    # Process suspects souvent utilisés en post-exploitation
+    SUSPICIOUS_PROC = {
+        'mimikatz.exe', 'psexec.exe', 'psexec64.exe', 'rundll32.exe',
+        'mshta.exe', 'wmic.exe', 'certutil.exe', 'bitsadmin.exe',
+        'regsvr32.exe', 'cscript.exe', 'wscript.exe',
+        'powershell_ise.exe', 'cmd.exe',
+    }
+
+    # Clés registre de persistence Windows (HKLM/HKCU)
+    PERSISTENCE_KEYS = (
+        r'\Run', r'\RunOnce', r'\RunServices', r'\RunOnceEx',
+        r'\Explorer\Run', r'\Image File Execution Options',
+        r'\Winlogon\Shell', r'\Winlogon\Userinit',
+        r'\AppInit_DLLs', r'\Schedule\TaskCache',
+    )
+
+    def __init__(self):
+        super().__init__(daemon=True, name='SysmonCollector')
+        self._last_record = 0
+
+    def _sysmon_available(self):
+        """Vérifie si Sysmon est installé en interrogeant le journal."""
+        try:
+            result = subprocess.run(
+                ['wevtutil', 'gl', self.SYSMON_CHANNEL],
+                capture_output=True, text=True, timeout=5
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def _get_last_record_id(self):
+        try:
+            result = subprocess.run(
+                ['wevtutil', 'gli', self.SYSMON_CHANNEL],
+                capture_output=True, text=True, timeout=10
+            )
+            for line in result.stdout.splitlines():
+                if 'lastRecordNumber' in line:
+                    return int(line.split(':')[1].strip())
+        except Exception:
+            pass
+        return 0
+
+    def _query_events(self, last_id, count=100):
+        try:
+            xpath = f"*[System/EventRecordID>{last_id}]"
+            result = subprocess.run(
+                ['wevtutil', 'qe', self.SYSMON_CHANNEL,
+                 f'/q:{xpath}', f'/c:{count}', '/rd:true', '/f:xml'],
+                capture_output=True, text=True, timeout=20
+            )
+            return result.stdout
+        except Exception:
+            return ''
+
+    def _extract_data(self, ed_node, ns):
+        """Extrait les <Data Name="X">val</Data> en dict."""
+        out = {}
+        if ed_node is None:
+            return out
+        for d in ed_node.findall(f'{{{ns}}}Data'):
+            name = d.attrib.get('Name', '')
+            val  = d.text or ''
+            if name:
+                out[name] = val
+        return out
+
+    def _parse_xml_events(self, xml_str):
+        import xml.etree.ElementTree as ET
+        events = []
+        ns = 'http://schemas.microsoft.com/win/2004/08/events/event'
+        xml_str = f'<root>{xml_str}</root>'
+        try:
+            root = ET.fromstring(xml_str)
+        except ET.ParseError:
+            return events
+
+        for ev in root.findall(f'{{{ns}}}Event'):
+            try:
+                system    = ev.find(f'{{{ns}}}System')
+                event_id  = int(system.find(f'{{{ns}}}EventID').text)
+                record_id = int(system.find(f'{{{ns}}}EventRecordID').text)
+                ts_str    = system.find(f'{{{ns}}}TimeCreated').attrib.get('SystemTime', '')
+                try:
+                    ts = datetime.fromisoformat(ts_str.replace('Z', '')[:26])
+                except Exception:
+                    ts = datetime.utcnow()
+
+                if event_id not in self.EVENT_MAP:
+                    continue
+
+                task, resource, label = self.EVENT_MAP[event_id]
+                data = self._extract_data(ev.find(f'{{{ns}}}EventData'), ns)
+
+                # Username (User attribute style: DOMAIN\User)
+                user_full = data.get('User', 'SYSTEM')
+                username  = user_full.split('\\')[-1] if '\\' in user_full else user_full
+
+                raw_parts = [f'Sysmon Event {event_id}: {label}']
+
+                # ─── Event-specific enrichment ─────────────
+                severity = 'medium'
+
+                if event_id == 1:  # Process Create
+                    img  = data.get('Image', '')
+                    cmd  = data.get('CommandLine', '')
+                    parent = data.get('ParentImage', '')
+                    proc_name = img.split('\\')[-1].lower()
+                    raw_parts.append(f'image={img}')
+                    raw_parts.append(f'cmd={cmd[:120]}')
+                    raw_parts.append(f'parent={parent}')
+
+                    if proc_name in self.SUSPICIOUS_PROC:
+                        severity = 'high'
+                        raw_parts.append('[SUSPICIOUS PROCESS]')
+
+                    # Détection LOLBins (Living Off The Land)
+                    lol = ['certutil', 'bitsadmin', 'mshta', 'rundll32',
+                           'regsvr32', 'wmic', 'powershell -enc',
+                           'powershell -encodedcommand', 'invoke-expression']
+                    cmd_lc = cmd.lower()
+                    if any(l in cmd_lc for l in lol):
+                        severity = 'critical'
+                        raw_parts.append('[LOLBin/Obfuscation]')
+
+                elif event_id == 3:  # Network Connection
+                    dst_ip   = data.get('DestinationIp', '')
+                    dst_port = data.get('DestinationPort', '')
+                    proto    = data.get('Protocol', '')
+                    img      = data.get('Image', '').split('\\')[-1]
+                    raw_parts.append(f'{img} → {dst_ip}:{dst_port} ({proto})')
+
+                elif event_id == 7:  # Image Loaded
+                    img    = data.get('Image', '').split('\\')[-1]
+                    loaded = data.get('ImageLoaded', '').split('\\')[-1]
+                    raw_parts.append(f'{img} chargea {loaded}')
+                    if not data.get('Signed', '').lower() == 'true':
+                        severity = 'high'
+                        raw_parts.append('[UNSIGNED DLL]')
+
+                elif event_id == 11:  # File Create
+                    target = data.get('TargetFilename', '')
+                    img    = data.get('Image', '').split('\\')[-1]
+                    raw_parts.append(f'{img} créa {target}')
+                    # Détection drop dans dossiers persistence
+                    persistence_dirs = ['\\Startup\\', '\\Start Menu\\',
+                                        'AppData\\Roaming', 'Temp\\']
+                    if any(p in target for p in persistence_dirs) and \
+                       target.lower().endswith(('.exe', '.dll', '.bat', '.ps1', '.vbs')):
+                        severity = 'high'
+                        raw_parts.append('[PERSISTENCE LOCATION]')
+
+                elif event_id in (12, 13):  # Registry
+                    target = data.get('TargetObject', '')
+                    img    = data.get('Image', '').split('\\')[-1]
+                    raw_parts.append(f'{img}: {target}')
+                    if any(k in target for k in self.PERSISTENCE_KEYS):
+                        severity = 'critical'
+                        raw_parts.append('[PERSISTENCE KEY MODIFIED]')
+
+                elif event_id == 22:  # DNS Query
+                    qname  = data.get('QueryName', '')
+                    img    = data.get('Image', '').split('\\')[-1]
+                    raw_parts.append(f'{img} → {qname}')
+                    suspect_tlds = ['.onion', '.bit', '.i2p']
+                    suspect_kw   = ['ngrok', 'pastebin', 'serveo', 'pagekite',
+                                    'requestbin', 'webhook', 'burpcollaborator']
+                    if any(qname.endswith(t) for t in suspect_tlds) or \
+                       any(k in qname.lower() for k in suspect_kw):
+                        severity = 'high'
+                        raw_parts.append('[SUSPICIOUS DOMAIN]')
+
+                elif event_id == 25:  # Process Tampering
+                    severity = 'critical'
+
+                events.append({
+                    'username': username,
+                    'resource': resource,
+                    'task':     task,
+                    'execution_date': ts,
+                    'source':   'sysmon',
+                    'raw':      ' | '.join(raw_parts),
+                    '_severity': severity,
+                    '_record_id': record_id,
+                })
+            except Exception:
+                continue
+        return events
+
+    def run(self):
+        if not self._sysmon_available():
+            print('[MODULE 1] Sysmon: non installé — '
+                  'téléchargez https://docs.microsoft.com/sysinternals/downloads/sysmon',
+                  file=sys.stderr)
+            return
+
+        self._last_record = self._get_last_record_id()
+        status['sources'].append('Sysmon (Windows)')
+        print(f'[MODULE 1] Sysmon: démarré (last record={self._last_record})',
+              file=sys.stderr)
+
+        while True:
+            try:
+                xml_str = self._query_events(self._last_record)
+                if xml_str.strip():
+                    events = self._parse_xml_events(xml_str)
+                    for ev in events:
+                        rid = ev.pop('_record_id', 0)
+                        if rid > self._last_record:
+                            self._last_record = rid
+                        write_event(**{k: v for k, v in ev.items()
+                                       if not k.startswith('_')})
+            except Exception as e:
+                status['errors'].append(f'Sysmon: {e}')
+
+            time.sleep(3)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1106,6 +1387,25 @@ class NetworkCapture(threading.Thread):
             time.sleep(retry_delay)
             retry_delay = min(retry_delay * 2, max_delay)
 
+    def _is_admin_windows(self):
+        """Vérifie si on a les droits Admin Windows."""
+        try:
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            return False
+
+    def _check_npcap_installed(self):
+        """Vérifie si npcap est installé sur Windows."""
+        try:
+            paths = [
+                r'C:\Windows\System32\Npcap',
+                r'C:\Windows\SysWOW64\Npcap',
+            ]
+            return any(os.path.isdir(p) for p in paths)
+        except Exception:
+            return False
+
     def run(self):
         try:
             from scapy.all import sniff, IP, TCP, UDP, Raw, get_if_list
@@ -1114,7 +1414,18 @@ class NetworkCapture(threading.Thread):
             status['errors'].append('NetworkCapture: pip install scapy')
             return
 
-        if SYSTEM != 'Windows' and os.geteuid() != 0:
+        # ── Vérification des droits selon OS ─────────────────────────
+        if SYSTEM == 'Windows':
+            if not self._is_admin_windows():
+                sniffer_status['error'] = 'Droits Administrateur requis (clic droit → Exécuter en tant qu\'admin)'
+                status['errors'].append('NetworkCapture: droits Admin requis')
+                return
+            if not self._check_npcap_installed():
+                sniffer_status['error'] = 'npcap non installé — téléchargez https://npcap.com/'
+                status['errors'].append('NetworkCapture: npcap requis sur Windows')
+                print('[MODULE 1] NIDS: npcap manquant — capture désactivée', file=sys.stderr)
+                return
+        elif os.geteuid() != 0:
             sniffer_status['error'] = 'Droits root requis (lancez avec sudo)'
             status['errors'].append('NetworkCapture: droits root requis (sudo)')
             return
@@ -1139,6 +1450,13 @@ class NetworkCapture(threading.Thread):
             sniffer_status['error'] = 'Aucune interface disponible'
             print(f'[MODULE 1] NIDS: aucune interface', file=sys.stderr)
             return
+
+        # Filtrer les interfaces non pertinentes sur Windows
+        if SYSTEM == 'Windows':
+            # Exclure certaines interfaces Windows verbeuses
+            all_ifaces = [i for i in all_ifaces
+                          if 'isatap' not in i.lower()
+                          and 'teredo' not in i.lower()]
 
         sniffer_status['interface'] = ','.join(all_ifaces)
         sniffer_status['active']     = True
@@ -1222,6 +1540,7 @@ class ProcessMonitor(threading.Thread):
     """Détecte les nouveaux processus suspects via psutil."""
 
     SUSPICIOUS = [
+        # ═══ MULTI-PLATEFORME ═══
         # Scanners réseau
         'nmap', 'masscan', 'zmap', 'unicornscan', 'hping3', 'angry ip',
         # Sniffers / MitM
@@ -1238,25 +1557,62 @@ class ProcessMonitor(threading.Thread):
         # Mots de passe / cracking
         'hydra', 'medusa', 'john', 'hashcat', 'ophcrack', 'fcrackzip',
         'cewl', 'crunch',
-        # Post-exploitation Linux
-        'linpeas', 'linEnum', 'pspy', 'gtfobins',
-        # Post-exploitation Windows
-        'mimikatz', 'procdump', 'wce', 'fgdump', 'pwdump',
-        'rubeus', 'bloodhound', 'sharphound', 'powerview',
-        'psexec', 'wmiexec', 'smbexec', 'impacket',
-        # Escalade de privilèges
-        'linux-exploit-suggester', 'windows-exploit-suggester',
-        'wesng', 'sherlock',
         # Crypto mining
         'xmrig', 'minerd', 'cpuminer', 'ccminer', 'ethminer', 'nbminer',
         # Tunneling / persistance
         'proxychains', 'revsocks', 'iodine', 'dns2tcp', 'ptunnel',
-        # Commandes shell suspectes (détection par cmdline)
+
+        # ═══ LINUX ═══
+        'linpeas', 'linenum', 'pspy', 'gtfobins',
+        'linux-exploit-suggester',
+        # Commandes shell suspectes
         'bash -i', 'sh -i', 'python -c', 'python3 -c', 'perl -e',
         'ruby -e', 'php -r', 'curl | bash', 'wget | bash',
-        # Outils Windows suspects
-        'powershell -enc', 'powershell -nop', 'cmd /c',
-        'reg add', 'schtasks /create', 'at /create',
+
+        # ═══ WINDOWS — Credential dumping & persistence ═══
+        'mimikatz', 'mimikatz.exe', 'procdump', 'procdump.exe',
+        'procdump64.exe', 'wce', 'wce.exe', 'fgdump', 'pwdump',
+        'rubeus', 'rubeus.exe', 'kekeo', 'kekeo.exe',
+        'gsecdump', 'creddump', 'lazagne', 'lazagne.exe',
+
+        # ═══ WINDOWS — AD reconnaissance ═══
+        'bloodhound', 'sharphound', 'sharphound.exe', 'powerview',
+        'azurehound', 'pingcastle', 'adfind', 'adexplorer',
+
+        # ═══ WINDOWS — Lateral movement ═══
+        'psexec', 'psexec.exe', 'psexec64.exe', 'paexec',
+        'wmiexec', 'wmiexec.py', 'smbexec', 'atexec',
+        'impacket', 'crackmapexec', 'crackmapexec.exe',
+        'evil-winrm', 'evilwinrm',
+
+        # ═══ WINDOWS — LOLBins (Living Off The Land) ═══
+        'certutil.exe', 'bitsadmin.exe', 'mshta.exe',
+        'rundll32.exe', 'regsvr32.exe', 'installutil.exe',
+        'msbuild.exe', 'csc.exe',
+
+        # ═══ WINDOWS — Exploitation frameworks ═══
+        'cobaltstrike', 'beacon.exe', 'cobalt strike',
+        'sliver-client', 'sliver-server', 'havoc client',
+        'brute ratel', 'nighthawk',
+
+        # ═══ WINDOWS — Privilege escalation ═══
+        'winpeas', 'winpeas.exe', 'winpeasx64.exe',
+        'windows-exploit-suggester', 'wesng', 'sherlock', 'watson.exe',
+        'juicypotato', 'juicypotato.exe', 'roguepotato', 'printspoofer',
+
+        # ═══ WINDOWS — Commandes suspectes (cmdline) ═══
+        'powershell -enc', 'powershell -encodedcommand',
+        'powershell -nop', 'powershell -noprofile',
+        'powershell -windowstyle hidden', 'powershell.exe -e',
+        'iex(new-object', 'invoke-webrequest', 'invoke-expression',
+        'downloadstring', 'downloadfile', 'iex (',
+        'reg add hklm', 'reg add hkcu',
+        'schtasks /create', 'at /create',
+        'wmic process call create', 'wmic /node:',
+        'net user /add', 'net localgroup administrators',
+        'vssadmin delete shadows', 'wbadmin delete catalog',
+        'bcdedit /set', 'fsutil usn deletejournal',
+        'cipher /w:', 'wevtutil cl ',
     ]
 
     def __init__(self):
@@ -1392,6 +1748,268 @@ def _decode_hex(s: str) -> str:
     except Exception:
         pass
     return s
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# WINDOWS — Surveillance du Registre (clés de persistence)
+# ════════════════════════════════════════════════════════════════════════════
+
+class WindowsRegistryMonitor(threading.Thread):
+    """Surveille les clés de persistence Windows toutes les 60 secondes.
+
+    Détecte ajouts/modifications dans :
+      - HKLM/HKCU \\Software\\Microsoft\\Windows\\CurrentVersion\\Run
+      - HKLM/HKCU \\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce
+      - HKLM \\System\\CurrentControlSet\\Services (nouveaux services)
+      - HKLM \\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon
+      - HKLM \\Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options
+    """
+
+    PERSISTENCE_KEYS = [
+        # (hive, key, description)
+        ('HKLM', r'Software\Microsoft\Windows\CurrentVersion\Run', 'autorun-machine'),
+        ('HKCU', r'Software\Microsoft\Windows\CurrentVersion\Run', 'autorun-user'),
+        ('HKLM', r'Software\Microsoft\Windows\CurrentVersion\RunOnce', 'runonce-machine'),
+        ('HKCU', r'Software\Microsoft\Windows\CurrentVersion\RunOnce', 'runonce-user'),
+        ('HKLM', r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders', 'shell-folders'),
+        ('HKLM', r'Software\Microsoft\Windows NT\CurrentVersion\Winlogon', 'winlogon'),
+        ('HKLM', r'Software\Microsoft\Windows NT\CurrentVersion\Image File Execution Options', 'ifeo'),
+        ('HKLM', r'Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run', 'policy-run'),
+        ('HKCU', r'Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run', 'policy-run-user'),
+    ]
+
+    POLL_INTERVAL = 60  # secondes
+
+    def __init__(self):
+        super().__init__(daemon=True, name='WindowsRegistryMonitor')
+        self._baseline = {}   # (hive, key) → {value_name: value_data}
+
+    def _read_key(self, hive_name, key_path):
+        """Lit toutes les valeurs d'une clé via reg.exe."""
+        hive_map = {'HKLM': 'HKEY_LOCAL_MACHINE', 'HKCU': 'HKEY_CURRENT_USER'}
+        full = f'{hive_map.get(hive_name, hive_name)}\\{key_path}'
+        try:
+            result = subprocess.run(
+                ['reg', 'query', full],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode != 0:
+                return {}
+            values = {}
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                # Format: "    NomValeur    REG_SZ    Donnée"
+                parts = line.split(None, 2)
+                if len(parts) == 3 and parts[1].startswith('REG_'):
+                    values[parts[0]] = parts[2]
+            return values
+        except Exception:
+            return {}
+
+    def _build_baseline(self):
+        """Construit la baseline initiale."""
+        for hive, key, _ in self.PERSISTENCE_KEYS:
+            self._baseline[(hive, key)] = self._read_key(hive, key)
+
+    def _check_diff(self):
+        """Compare l'état actuel à la baseline."""
+        for hive, key, label in self.PERSISTENCE_KEYS:
+            current = self._read_key(hive, key)
+            baseline = self._baseline.get((hive, key), {})
+
+            # Nouvelles valeurs
+            for name, val in current.items():
+                if name not in baseline:
+                    write_event(
+                        username='SYSTEM',
+                        resource='registry',
+                        task='write',
+                        execution_date=datetime.utcnow(),
+                        source='windows/registry',
+                        raw=f'[PERSISTENCE] Nouvelle valeur dans {hive}\\{key} ({label}): '
+                            f'{name} = {val[:120]}'
+                    )
+                elif baseline[name] != val:
+                    write_event(
+                        username='SYSTEM',
+                        resource='registry',
+                        task='write',
+                        execution_date=datetime.utcnow(),
+                        source='windows/registry',
+                        raw=f'[MODIFICATION] Valeur changée {hive}\\{key} ({label}): '
+                            f'{name} = {val[:120]} (était {baseline[name][:60]})'
+                    )
+
+            # Valeurs supprimées
+            for name in baseline:
+                if name not in current:
+                    write_event(
+                        username='SYSTEM',
+                        resource='registry',
+                        task='delete',
+                        execution_date=datetime.utcnow(),
+                        source='windows/registry',
+                        raw=f'[SUPPRESSION] Valeur supprimée {hive}\\{key} ({label}): {name}'
+                    )
+
+            self._baseline[(hive, key)] = current
+
+    def run(self):
+        if SYSTEM != 'Windows':
+            return
+        try:
+            self._build_baseline()
+            n = sum(len(v) for v in self._baseline.values())
+            print(f'[MODULE 1] Registry: baseline construite ({n} valeurs surveillées)',
+                  file=sys.stderr)
+            status['sources'].append('Windows Registry (persistence)')
+        except Exception as e:
+            status['errors'].append(f'RegistryMonitor init: {e}')
+            return
+
+        while True:
+            try:
+                time.sleep(self.POLL_INTERVAL)
+                self._check_diff()
+            except Exception as e:
+                status['errors'].append(f'RegistryMonitor: {e}')
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# WINDOWS — Surveillance des Services
+# ════════════════════════════════════════════════════════════════════════════
+
+class WindowsServiceMonitor(threading.Thread):
+    """Surveille les services Windows : détecte nouveaux services et changements.
+
+    Utilise `sc query` pour lister tous les services et détecte :
+      - Nouveau service installé (potentielle persistence)
+      - Service AUTO_START non-Microsoft suspect
+      - Service avec binPath suspect (rundll32, powershell, etc.)
+    """
+
+    POLL_INTERVAL = 60  # secondes
+
+    # Patterns suspects dans binPath
+    SUSPICIOUS_BIN_PATTERNS = [
+        'powershell', 'cmd.exe /c', 'rundll32', 'mshta',
+        'wscript', 'cscript', 'regsvr32', 'certutil',
+        'bitsadmin', '\\users\\', '\\temp\\', '\\appdata\\',
+    ]
+
+    def __init__(self):
+        super().__init__(daemon=True, name='WindowsServiceMonitor')
+        self._known = set()        # noms de services connus
+        self._configs = {}         # name → {start_type, bin_path}
+
+    def _list_services(self):
+        """Liste tous les services via sc query state=all."""
+        try:
+            result = subprocess.run(
+                ['sc', 'query', 'state=', 'all'],
+                capture_output=True, text=True, timeout=15
+            )
+            services = []
+            current = {}
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith('SERVICE_NAME:'):
+                    if current:
+                        services.append(current)
+                    current = {'name': line.split(':', 1)[1].strip()}
+                elif line.startswith('DISPLAY_NAME:'):
+                    current['display'] = line.split(':', 1)[1].strip()
+            if current:
+                services.append(current)
+            return services
+        except Exception:
+            return []
+
+    def _get_service_config(self, name):
+        """Récupère config d'un service via sc qc <name>."""
+        try:
+            result = subprocess.run(
+                ['sc', 'qc', name],
+                capture_output=True, text=True, timeout=10
+            )
+            cfg = {}
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if ':' in line:
+                    k, v = line.split(':', 1)
+                    cfg[k.strip()] = v.strip()
+            return {
+                'start_type': cfg.get('START_TYPE', ''),
+                'bin_path':   cfg.get('BINARY_PATH_NAME', ''),
+                'display':    cfg.get('DISPLAY_NAME', ''),
+            }
+        except Exception:
+            return {}
+
+    def _is_suspicious(self, cfg):
+        """Détermine si un service est suspect."""
+        bin_path = cfg.get('bin_path', '').lower()
+        for pattern in self.SUSPICIOUS_BIN_PATTERNS:
+            if pattern in bin_path:
+                return True, f'binPath contient "{pattern}"'
+        return False, ''
+
+    def run(self):
+        if SYSTEM != 'Windows':
+            return
+
+        # Baseline initial
+        try:
+            for svc in self._list_services():
+                self._known.add(svc['name'])
+            print(f'[MODULE 1] Services: baseline construite ({len(self._known)} services)',
+                  file=sys.stderr)
+            status['sources'].append('Windows Services (persistence)')
+        except Exception as e:
+            status['errors'].append(f'ServiceMonitor init: {e}')
+            return
+
+        while True:
+            try:
+                time.sleep(self.POLL_INTERVAL)
+                current_services = self._list_services()
+                current_names = {s['name'] for s in current_services}
+
+                # Nouveaux services
+                new_names = current_names - self._known
+                for name in new_names:
+                    cfg = self._get_service_config(name)
+                    suspicious, reason = self._is_suspicious(cfg)
+                    severity = 'critical' if suspicious else 'medium'
+                    raw = (f'Nouveau service "{name}" ({cfg.get("display", "")}): '
+                           f'start={cfg.get("start_type", "?")} '
+                           f'bin={cfg.get("bin_path", "?")[:120]}')
+                    if suspicious:
+                        raw += f' [SUSPECT: {reason}]'
+                    write_event(
+                        username='SYSTEM',
+                        resource='system',
+                        task='admin',
+                        execution_date=datetime.utcnow(),
+                        source='windows/service',
+                        raw=raw,
+                    )
+
+                # Services supprimés (intéressant pour audit)
+                removed = self._known - current_names
+                for name in removed:
+                    write_event(
+                        username='SYSTEM',
+                        resource='system',
+                        task='delete',
+                        execution_date=datetime.utcnow(),
+                        source='windows/service',
+                        raw=f'Service supprimé : {name}',
+                    )
+
+                self._known = current_names
+            except Exception as e:
+                status['errors'].append(f'ServiceMonitor: {e}')
 
 
 class AuditdCollector(threading.Thread):
@@ -1572,7 +2190,11 @@ class AuditdCollector(threading.Thread):
 # ════════════════════════════════════════════════════════════════════════════
 
 def start(app=None):
-    """Démarre tous les collecteurs comme démons en arrière-plan."""
+    """Démarre tous les collecteurs comme démons en arrière-plan.
+
+    Linux : LinuxLogCollector + AuditdCollector + FileIntegrity + Process + Network
+    Windows : WindowsLog + Sysmon + Registry + Service + FileIntegrity + Process + Network
+    """
     os.makedirs(EVENTS_DIR, exist_ok=True)
 
     status['running']    = True
@@ -1580,15 +2202,19 @@ def start(app=None):
     status['sources']    = []
     status['errors']     = []
 
+    # ── Collecteurs spécifiques par OS ─────────────────────────
     if SYSTEM == 'Windows':
         WindowsLogCollector().start()
+        SysmonCollector().start()           # Équivalent auditd
+        WindowsRegistryMonitor().start()    # Persistence registre
+        WindowsServiceMonitor().start()     # Persistence services
     else:
         LinuxLogCollector().start()
+        AuditdCollector().start()
 
-    NetworkCapture(app).start()  # Passer app pour accès DB (règles NIDS)
+    # ── Collecteurs multi-OS ───────────────────────────────────
+    NetworkCapture(app).start()
     FileIntegrityMonitor().start()
     ProcessMonitor().start()
-    if SYSTEM != 'Windows':
-        AuditdCollector().start()
 
     print(f'[MODULE 1] Collecteur démarré (OS={SYSTEM})', file=sys.stderr)

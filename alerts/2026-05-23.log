@@ -2565,3 +2565,48 @@ INTRUSION DÉTECTÉE
   Type        : user_unknown
   Ligne brute : SCAN DE PORTS: 10.146.250.95 → 85 ports en 60s
 ═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-23 23:28:00 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 10.146.250.10
+  Ressource   : network_scanner
+  Tâche       : network_access
+  Date accès  : 2026-05-23 23:27:59
+  Source      : nids/rule_1
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '10.146.250.10' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : ALERTE (règle #1 'ssh'): 10.146.250.10:39424 → 140.82.121.4:22 (TCP)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-23 23:28:00 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 10.146.250.10
+  Ressource   : ssh_server
+  Tâche       : connect
+  Date accès  : 2026-05-23 23:27:59
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 10.146.250.10 sur ssh_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SSH détectée: 10.146.250.10:22 → 140.82.121.4
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-23 23:28:03 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 10.146.250.10
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-23 23:28:00
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 10.146.250.10 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 10.146.250.10:587 → 212.227.24.203
+═══════════════════════════════════════════════════════

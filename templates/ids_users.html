@@ -10,6 +10,7 @@
       <div class="card-header"><h6>Ajouter un utilisateur</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/users/add">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="f-group"><label class="f-label">Nom d'utilisateur</label><input type="text" name="username" class="f-input" placeholder="ex: alice" required></div>
           <div class="f-group">
             <label class="f-label">Rôle</label>

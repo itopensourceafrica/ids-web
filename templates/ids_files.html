@@ -8,6 +8,7 @@
   <div class="card-body">
     <p style="font-size:13px;color:var(--text-3);margin-bottom:16px">Crée un fichier d'événements pour y ajouter des entrées manuellement (analyse batch).</p>
     <form method="POST" action="/ids/files/create" class="flex items gap-2">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <div style="flex:1"><label class="f-label">Nom (optionnel)</label><input type="text" name="name" class="f-input" placeholder="ex: Session_2026_01"></div>
       <div style="align-self:flex-end"><button type="submit" class="btn btn-primary"><i class="fas fa-plus"></i> Créer</button></div>
     </form>

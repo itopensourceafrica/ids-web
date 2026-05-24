@@ -18,6 +18,7 @@
       <div class="card-body">
         <p style="font-size:13px;color:var(--text-3);margin-bottom:18px">Configure les paramètres et lance la détection sur les fichiers chargés.</p>
         <form method="POST" action="/ids/run">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="g-stats g-2">
             <div class="f-group"><label class="f-label">N — Entrées max / fichier</label><input type="number" name="N" class="f-input" value="100" min="1" required></div>
             <div class="f-group"><label class="f-label">P — Nombre de fichiers</label><input type="number" name="P" class="f-input" value="{{ stats.files }}" min="1" required></div>

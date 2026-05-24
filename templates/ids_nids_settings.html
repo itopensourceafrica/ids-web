@@ -10,6 +10,7 @@
       <div class="card-header"><h6>Interface réseau</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/nids/set_interface">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="f-group">
             <label class="f-label">Sélectionner interface</label>
             <select name="interface" class="f-select" required>

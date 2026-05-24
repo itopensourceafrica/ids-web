@@ -1,7 +1,78 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Paramètres</div><div class="pg-sub">Configuration SMTP et surveillance de fichiers</div></div>
+  <div><div class="pg-title">Paramètres</div><div class="pg-sub">Notifications (Email, Slack, Discord, Teams, syslog) et surveillance</div></div>
+</div>
+
+<!-- Webhooks Slack / Discord / Teams / Syslog -->
+<div class="card a1" style="margin-bottom:20px">
+  <div class="card-header"><i class="fas fa-bell" style="color:var(--blue)"></i><h6>Notifications externes</h6></div>
+  <div class="card-body">
+    <form method="POST" action="/ids/settings">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="webhooks">
+
+      <div class="g-stats g-2" style="gap:16px">
+        <div class="f-group">
+          <label class="f-label">
+            <i class="fab fa-slack" style="color:#4A154B"></i> Slack Webhook URL
+          </label>
+          <input type="url" name="slack_webhook" class="f-input"
+                 value="{{ webhooks.get('slack_webhook', '') }}"
+                 placeholder="https://hooks.slack.com/services/...">
+        </div>
+        <div class="f-group">
+          <label class="f-label">
+            <i class="fab fa-discord" style="color:#5865F2"></i> Discord Webhook URL
+          </label>
+          <input type="url" name="discord_webhook" class="f-input"
+                 value="{{ webhooks.get('discord_webhook', '') }}"
+                 placeholder="https://discord.com/api/webhooks/...">
+        </div>
+      </div>
+
+      <div class="g-stats g-2" style="gap:16px">
+        <div class="f-group">
+          <label class="f-label">
+            <i class="fab fa-microsoft" style="color:#5059C9"></i> Teams Webhook URL
+          </label>
+          <input type="url" name="teams_webhook" class="f-input"
+                 value="{{ webhooks.get('teams_webhook', '') }}"
+                 placeholder="https://outlook.office.com/webhook/...">
+        </div>
+        <div class="f-group">
+          <label class="f-label">Sévérité minimale</label>
+          <select name="min_severity" class="f-select">
+            {% for s in ['low', 'medium', 'high', 'critical'] %}
+              <option value="{{ s }}" {% if webhooks.get('min_severity') == s %}selected{% endif %}>
+                {{ s.capitalize() }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="g-stats g-2" style="gap:16px">
+        <div class="f-group">
+          <label class="f-label">
+            <i class="fas fa-server" style="color:var(--text-3)"></i> Syslog Host (SIEM)
+          </label>
+          <input type="text" name="syslog_host" class="f-input"
+                 value="{{ webhooks.get('syslog', {}).get('host', '') }}"
+                 placeholder="splunk.example.com">
+        </div>
+        <div class="f-group">
+          <label class="f-label">Syslog Port</label>
+          <input type="number" name="syslog_port" class="f-input"
+                 value="{{ webhooks.get('syslog', {}).get('port', 514) }}">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary mt-2">
+        <i class="fas fa-save"></i> Sauvegarder webhooks
+      </button>
+    </form>
+  </div>
 </div>
 
 <div class="two-col" style="grid-template-columns:1fr 1fr;gap:20px">
@@ -15,6 +86,7 @@
         Laissez vide pour désactiver.
       </p>
       <form method="POST" action="/ids/settings">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="smtp">
         <div class="f-group"><label class="f-label">Serveur SMTP</label>
           <input type="text" name="smtp_host" class="f-input" value="{{ smtp.get('host','') }}" placeholder="smtp.gmail.com"></div>
@@ -51,6 +123,7 @@
         Redémarrez le collecteur pour appliquer les changements.
       </p>
       <form method="POST" action="/ids/settings">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="integrity">
         <div class="f-group">
           <label class="f-label">Fichiers à surveiller</label>

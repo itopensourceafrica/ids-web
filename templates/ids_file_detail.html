@@ -16,6 +16,7 @@
       <div class="card-header"><h6>Ajouter une entrée</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/files/{{ file.id }}/add_entry">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="f-group">
             <label class="f-label">Utilisateur</label>
             <select name="username" class="f-select" required>

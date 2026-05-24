@@ -1,7 +1,51 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+
+# ── Utilisateurs de l'application web (admin/viewer/analyst) ──────────────
+class WebUser(db.Model):
+    """Utilisateur de l'interface web — distinct des IDSUser (utilisateurs surveillés)."""
+    __tablename__ = 'web_user'
+    id            = db.Column(db.Integer, primary_key=True)
+    username      = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role          = db.Column(db.String(20), default='viewer')  # admin / analyst / viewer
+    active        = db.Column(db.Boolean, default=True)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login    = db.Column(db.DateTime)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
+
+    @property
+    def can_edit(self):
+        return self.role in ('admin', 'analyst')
+
+
+# ── Log d'audit des actions admin ──────────────────────────────────────────
+class AuditLog(db.Model):
+    __tablename__ = 'audit_log'
+    id          = db.Column(db.Integer, primary_key=True)
+    timestamp   = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id     = db.Column(db.Integer, db.ForeignKey('web_user.id'))
+    username    = db.Column(db.String(80))           # snapshot en cas de suppression
+    action      = db.Column(db.String(100), nullable=False)
+    target      = db.Column(db.String(200))          # objet concerné
+    ip_address  = db.Column(db.String(45))
+    user_agent  = db.Column(db.String(200))
+    details     = db.Column(db.Text)
+
+    user = db.relationship('WebUser', backref='audit_logs')
 
 
 # ── Alertes produites par le Module 4 ──────────────────────────────────────
