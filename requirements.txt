@@ -1,6 +1,17 @@
+# Dépendances IDS Web
+# ── Framework web ─────────────────────────────────────────
 Flask>=3.1.0
 Flask-SQLAlchemy>=3.1.1
+Werkzeug>=3.0
+
+# ── Capture réseau (NIDS) ─────────────────────────────────
 scapy>=2.6.1
+
+# ── Surveillance système (HIDS) ───────────────────────────
 psutil>=5.9.0
-python-dotenv>=1.0.1
+
+# ── Production WSGI ───────────────────────────────────────
 gunicorn>=23.0.0
+
+# ── Optionnel ─────────────────────────────────────────────
+python-dotenv>=1.0.1

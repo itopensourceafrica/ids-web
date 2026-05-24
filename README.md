@@ -10,9 +10,11 @@ Plateforme de détection d'intrusions modulaire, développée en Python/Flask. E
 - [Installation](#installation)
 - [Démarrage](#démarrage)
 - [Structure du projet](#structure-du-projet)
-- [Les 4 modules](#les-4-modules)
+- [Les 5 modules](#les-5-modules)
 - [Sources de données](#sources-de-données)
 - [Éléments surveillés — Liste complète](#éléments-surveillés--liste-complète)
+- [Sécurité & authentification web](#sécurité--authentification-web)
+- [Notifications externes](#notifications-externes)
 - [Logique de détection](#logique-de-détection)
 - [Types de violations](#types-de-violations)
 - [Format policy.conf](#format-policyconf)
@@ -20,8 +22,8 @@ Plateforme de détection d'intrusions modulaire, développée en Python/Flask. E
 - [Format des fichiers d'événements](#format-des-fichiers-dévénements)
 - [Format des alertes](#format-des-alertes)
 - [Guide d'utilisation de l'interface web](#guide-dutilisation-de-linterface-web)
+- [Variables d'environnement](#variables-denvironnement)
 - [Tests réels](#tests-réels)
-- [Configuration email](#configuration-email)
 - [Déploiement production](#déploiement-production)
 - [Améliorations prévues](#améliorations-prévues)
 
@@ -29,7 +31,7 @@ Plateforme de détection d'intrusions modulaire, développée en Python/Flask. E
 
 ## Architecture
 
-Le système est organisé en pipeline à quatre étages. Chaque module est un démon indépendant qui démarre automatiquement avec l'application.
+Le système est organisé en pipeline à **cinq étages**. Chaque module est un démon indépendant qui démarre automatiquement avec l'application. Un cinquième module (maintenance) tourne en arrière-plan pour la purge et l'archivage.
 
 ```
   ┌─────────────────────────────┐     ┌─────────────────────────────┐
@@ -114,18 +116,39 @@ sudo -E python3 app.py
 
 ### Windows
 
+#### Installation automatique (recommandée)
+
+```powershell
+# PowerShell en Administrateur
+powershell -ExecutionPolicy Bypass -File deploy\install-windows.ps1
+```
+
+Le script vérifie Sysmon + npcap, installe les dépendances Python et génère les secrets.
+
+#### Installation manuelle
+
 ```powershell
 # 1. Installer Python 3.10+ depuis https://python.org
-# 2. Installer Npcap depuis https://npcap.com (nécessaire pour scapy)
+# 2. Installer Sysmon (HIDS Windows avancé)
+#    Téléchargement : https://docs.microsoft.com/sysinternals/downloads/sysmon
+#    Installation : Sysmon64.exe -accepteula -i sysmonconfig.xml
+# 3. Installer Npcap (capture réseau scapy)
+#    Téléchargement : https://npcap.com
 
-# 3. Dans PowerShell en tant qu'Administrateur
-pip install flask flask-sqlalchemy scapy psutil python-dotenv
+# 4. Dans PowerShell en tant qu'Administrateur
+pip install -r requirements.txt
 
-# 4. Lancer en tant qu'Administrateur (Event Log + capture réseau)
+# 5. Définir les secrets
+$env:IDS_SECRET_KEY  = -join ((1..64) | %{Get-Random -Maximum 16 | %{'{0:x}' -f $_}})
+$env:IDS_ADMIN_PASSWORD = 'votre-mot-de-passe-fort'
+
+# 6. Lancer en tant qu'Administrateur (Event Log + capture réseau + Sysmon)
 python app.py
 ```
 
-> **Note Windows** : pour un accès avancé au journal d'événements Windows, installer `pywin32` (`pip install pywin32`). Sans ce paquet, le collecteur utilise `wevtutil` via subprocess, ce qui fonctionne sur toutes les versions de Windows sans dépendance supplémentaire.
+> **Sysmon** est requis pour bénéficier de la surveillance avancée Windows (process create, network connections, registry monitoring via Sysmon). Sans Sysmon, l'IDS fonctionne mais les détections Windows seront limitées au journal Security/System standard.
+
+> **Npcap** est requis pour la capture réseau. Sans npcap, le NIDS sera désactivé sur Windows (mais le HIDS continue de fonctionner).
 
 ---
 
@@ -182,7 +205,7 @@ ids_web/
 
 ---
 
-## Les 4 modules
+## Les 5 modules
 
 ### Module 1 — Collecteur d'événements
 
@@ -190,15 +213,23 @@ Observe en permanence plusieurs sources système et réseau. Pour chaque événe
 
 | Collecteur | Source | OS | Droits requis |
 |---|---|---|---|
-| `LinuxLogCollector` | `/var/log/auth.log`, `/var/log/secure`, `/var/log/audit/audit.log` | Linux | Lecture seule |
+| `LinuxLogCollector` | `/var/log/auth.log`, `/var/log/secure` | Linux | Lecture seule |
+| `AuditdCollector` | `/var/log/audit/audit.log` (11 règles auditd) | Linux | Lecture seule |
+| `LinuxPersistenceMonitor` | cron, systemd, init.d, profile.d, /root/.ssh | Linux | Lecture seule |
+| `SUIDMonitor` | Détecte nouveaux SUID/SGID (escalade de privilèges) | Linux | Lecture seule |
 | `WindowsLogCollector` | Journal Security, System (via `wevtutil`) | Windows | Administrateur |
-| `NetworkCapture` | Paquets IP (scapy) + moteur de règles NIDS configurables | Linux + Windows | root / Admin |
+| `SysmonCollector` | Journal Sysmon (Events 1, 3, 7, 11, 12, 13, 22, 25) | Windows | Administrateur + Sysmon installé |
+| `WindowsRegistryMonitor` | 9 clés de persistence (Run, Winlogon, IFEO...) | Windows | Administrateur |
+| `WindowsServiceMonitor` | Nouveaux services + binPath suspects | Windows | Administrateur |
+| `NetworkCapture` | Paquets IP/IPv6 (scapy) + moteur de règles + JA3 + DNS tunnel | Linux + Windows | root / Admin (+ npcap sur Windows) |
 | `FileIntegrityMonitor` | Hash SHA-256 des fichiers critiques | Linux + Windows | Lecture seule |
-| `ProcessMonitor` | Nouveaux processus suspects (psutil) | Linux + Windows | Utilisateur standard |
+| `ProcessMonitor` | Nouveaux processus suspects (140+ outils offensifs) | Linux + Windows | Utilisateur standard |
 
 ### Module 2 — Analyseur d'événements
 
 Surveille le dossier `events/` toutes les 3 secondes. Pour chaque nouvelle ligne JSON, il compare les quatre champs de l'événement (`username`, `resource`, `task`, `execution_date`) aux règles actives de la politique. Si aucune règle n'autorise cet accès, une intrusion est enregistrée et transmise au Module 4.
+
+Le système fonctionne en **deny-by-default** avec **accumulation cumulative de droits** : chaque règle `allow` ajoute une permission, chaque règle `deny` la retire. Les règles sont évaluées dans l'ordre.
 
 Il effectue également deux analyses complémentaires de manière indépendante :
 
@@ -212,9 +243,32 @@ Gère les règles d'accès de deux façons complémentaires :
 - **Interface web** : ajout, suppression, activation/désactivation de chaque règle individuellement.
 - **Fichier `policy.conf`** : modification globale en éditant directement le fichier texte. Le module surveille ce fichier en permanence et recharge automatiquement la politique dès qu'une modification est détectée, sans redémarrer l'application.
 
+Deux types de règles coexistent dans `/ids/policy` via un toggle :
+
+- **HIDS** : `user × resource × task × policy_type (allow/deny) × plage de dates`
+- **NIDS** : `name × version (ipv4/v6) × protocol × src_ip × dst_ip × src_port × dst_port × tcp_flags × action (alert/deny/accept)`
+
 ### Module 4 — Générateur d'alertes
 
-Reçoit les intrusions depuis le Module 2 via une file d'attente thread-safe. Pour chaque intrusion, il génère une alerte formatée qui explique précisément la violation, l'enregistre dans la base de données, l'écrit dans le fichier log du jour, et l'envoie par email si un serveur SMTP est configuré.
+Reçoit les intrusions depuis le Module 2 via une file d'attente thread-safe. Pour chaque intrusion, il génère une alerte formatée qui explique précisément la violation, puis la distribue sur tous les canaux configurés :
+
+- **Fichier log** `alerts/YYYY-MM-DD.log`
+- **Base de données** (modèle `Alert`)
+- **Email SMTP** (optionnel)
+- **Webhooks** : Slack (Block Kit), Discord (embeds), MS Teams (MessageCard)
+- **Syslog** vers SIEM (Splunk, ELK, Wazuh) — RFC 3164 UDP
+
+Filtre par sévérité minimale configurable (`min_severity`).
+
+### Module 5 — Maintenance & housekeeping
+
+Démon qui tourne en arrière-plan (toutes les heures par défaut) pour assurer la santé long-terme du système :
+
+- **Purge DB** : supprime les `Alert` acquittées, `Intrusion`, `EventEntry`, `AuditLog` plus anciens que la rétention configurée
+- **Rotation des fichiers** : compresse en `.gz` les fichiers `events/` et `alerts/` plus anciens que 2 jours
+- **Suppression des archives** : supprime les `.gz` plus anciens que `ARCHIVE_RETENTION_DAYS` (90j par défaut)
+
+Configuration via variables d'environnement (voir [Variables d'environnement](#variables-denvironnement)).
 
 ---
 
@@ -295,6 +349,82 @@ Les 7 fichiers critiques sont hachés toutes les 30 secondes et comparés. Toute
 
 **Autres outils suspects :** screen, tmux, expect, telnet, openssl, ssl_client
 
+#### 5. Persistence Linux (LinuxPersistenceMonitor)
+
+Surveille toutes les 2 minutes les emplacements de persistence :
+- `/etc/cron.d`, `/etc/cron.hourly`, `/etc/cron.daily`, `/etc/cron.weekly`, `/etc/cron.monthly`
+- `/var/spool/cron`, `/var/spool/cron/crontabs`
+- `/etc/systemd/system`, `/lib/systemd/system`
+- `/etc/init.d`, `/etc/profile.d`
+- `/root/.ssh` (authorized_keys)
+
+Détecte : nouveau fichier, modification (mtime), suppression.
+
+#### 6. Escalade de privilèges Linux (SUIDMonitor)
+
+Scan toutes les 10 minutes des binaires SUID/SGID dans : `/usr/bin`, `/usr/sbin`, `/bin`, `/sbin`, `/usr/local/bin`, `/usr/local/sbin`, `/tmp`, `/var/tmp`, `/dev/shm`, `/home`.
+
+Alerte critique si un nouveau SUID apparaît dans `/tmp`, `/home`, `/var/tmp`, `/dev/shm` (emplacements suspects pour backdoors).
+
+Whitelist : su, sudo, passwd, mount, ping, pkexec, crontab, etc. (SUID Linux légitimes).
+
+### HIDS Windows
+
+#### 1. WindowsLogCollector — Event Log Security/System
+
+Lit `wevtutil qe Security` et `wevtutil qe System` pour les EventIDs :
+
+| EventID | Tâche | Resource | Description |
+|---|---|---|---|
+| 4624 | login | system | Connexion réussie |
+| 4625 | failed_login | system | Connexion échouée |
+| 4672 | admin | system | Privilèges admin assignés |
+| 4688 | execute | system | Nouveau process créé |
+| 4663 | read | file_storage | Accès fichier |
+| 4720 | write | user_management | Compte créé |
+| 4732 | write | user_management | Ajout à groupe |
+| 7045 | execute | system | Nouveau service installé |
+
+#### 2. SysmonCollector — Équivalent auditd
+
+Lit `Microsoft-Windows-Sysmon/Operational` (requiert Sysmon installé). Events surveillés :
+
+| EventID | Description | Détection enrichie |
+|---|---|---|
+| 1 | Process Create | Détecte processus suspects (mimikatz, psexec...) + LOLBins (certutil, mshta, powershell -enc) |
+| 3 | Network Connection | Trace connexions sortantes par processus |
+| 7 | Image Loaded | Alerte sur DLL non signée |
+| 11 | File Create | Alerte si drop dans Startup/AppData/Temp avec extensions exécutables |
+| 12-13 | Registry modification | Alerte si modification d'une clé de persistence |
+| 22 | DNS Query | Alerte si domaine suspect (.onion, ngrok, pastebin) |
+| 25 | Process Tampering | Toujours critique |
+
+Installation Sysmon : voir https://docs.microsoft.com/sysinternals/downloads/sysmon
+
+#### 3. WindowsRegistryMonitor — Persistence registre
+
+Surveille toutes les 60s les valeurs des clés de persistence :
+- `HKLM/HKCU \Software\Microsoft\Windows\CurrentVersion\Run`
+- `HKLM/HKCU \Software\Microsoft\Windows\CurrentVersion\RunOnce`
+- `HKLM \Software\Microsoft\Windows NT\CurrentVersion\Winlogon`
+- `HKLM \Software\Microsoft\Windows NT\CurrentVersion\Image File Execution Options` (IFEO hijacking)
+- `HKLM \Software\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run`
+
+Détecte : nouvelle valeur, modification, suppression.
+
+#### 4. WindowsServiceMonitor — Persistence services
+
+Surveille toutes les 60s la liste des services Windows (`sc query state=all`).
+
+Alerte sur :
+- Nouveau service installé
+- Service avec binPath suspect : `powershell`, `cmd.exe /c`, `rundll32`, `mshta`, `wscript`, `cscript`, `regsvr32`, `certutil`, `bitsadmin`, chemin dans `\users\` / `\temp\` / `\appdata\`
+
+#### 5. Intégrité fichiers Windows
+
+Surveille SHA-256 de 10 fichiers critiques :
+`hosts`, `networks`, `protocol`, `services`, `SAM`, `SYSTEM`, `SECURITY`, `SOFTWARE`, `win.ini`, `GroupPolicy\Machine\Registry.pol`.
+
 ### NIDS — Network-based Intrusion Detection
 
 #### 1. Détection port scan
@@ -341,6 +471,39 @@ Le moteur cherche des patterns suspects dans le contenu des paquets (insensible 
 - **Durée** : jusqu'à FIN/RST ou timeout 30 min
 - **Déduplication** : une même session ne génère qu'une alerte toutes les 60s
 
+#### 6. JA3 fingerprinting TLS
+
+Calcule la signature JA3 (MD5 des paramètres TLS ClientHello : version, ciphers, extensions, curves, formats).
+
+Une signature JA3 identifie de manière unique un client TLS — utile pour détecter les outils malveillants même via HTTPS chiffré. Base de signatures connues intégrée :
+
+| JA3 hash | Identifié comme |
+|---|---|
+| `6734f37431670b3ab4292b8f60f29984` | Trickbot |
+| `54328bd36c14bd82ddaa0c04b25ed9ad` | Emotet |
+| `a0e9f5d64349fb13191bc781f81f42e1` | Cobalt Strike |
+| `72a589da586844d7f0818ce684948eea` | Tor browser |
+
+Génère un événement source `nids/ja3` avec déduplication 5 min par (src, ja3).
+
+#### 7. Détection DNS tunneling
+
+Analyse les requêtes DNS (UDP port 53) pour détecter l'exfiltration via tunneling :
+
+- **Volume anormal** : > 50 requêtes en 60s vers le même domaine racine
+- **Sous-domaine long** : > 50 caractères (encoding base64/base32)
+- **Entropie élevée** : entropie de Shannon > 4.0 sur le sous-domaine (données chiffrées/aléatoires)
+
+Génère un événement source `nids/dns_tunnel` avec déduplication 5 min par domaine.
+
+#### 8. Support IPv6
+
+Le moteur de capture traite IPv4 (`IP`) et IPv6 (`IPv6`) de la même manière :
+- Match d'IP avec CIDR
+- TCP/UDP avec ports source/destination
+- Filtre loopback `::1 ↔ ::1`
+- Toutes les règles NIDS s'appliquent indifféremment
+
 ### Contrôle d'accès — Tâches surveillées (Politique Allow/Deny)
 
 Le système fonctionne en **deny-by-default** avec accumulation cumulative de droits :
@@ -375,6 +538,93 @@ alice;database;deny;delete;2026-01-01;2026-12-31;1
 | `backup` | HIDS | Sauvegarde, restauration |
 | `network_access` | NIDS | Connexions réseau |
 | `web_server` | HIDS | Processus nginx, apache |
+
+---
+
+## Sécurité & authentification web
+
+L'accès à l'interface web est protégé par authentification. **Aucune page n'est accessible sans être connecté** (sauf `/login` et `/favicon.ico`).
+
+### Comptes utilisateurs web
+
+Trois rôles existent (modèle `WebUser`) :
+
+| Rôle | Permissions |
+|---|---|
+| **admin** | Tout : gestion des comptes web, modification de toutes les règles, audit log |
+| **analyst** | Modifie les règles HIDS/NIDS, acquitte les alertes, change les paramètres |
+| **viewer** | Lecture seule (alertes, intrusions, monitoring) |
+
+### Premier démarrage
+
+Au premier lancement, un compte `admin / admin` est créé automatiquement (avertissement dans les logs).
+Pour définir un mot de passe initial sécurisé :
+
+```bash
+export IDS_ADMIN_PASSWORD='un-mot-de-passe-fort'
+```
+
+**Changement obligatoire** via `/account/password` après la première connexion.
+
+### Protections en place
+
+- **Hash mots de passe** : Werkzeug (PBKDF2-SHA256)
+- **Protection CSRF** : token unique par session, vérifié sur tous les POST
+- **Rate limiting login** : 5 échecs / 5 min / IP → blocage temporaire
+- **Sessions** : HttpOnly, SameSite=Lax, timeout 8h
+- **Cookie secure** : activable via `IDS_HTTPS=1` (derrière reverse proxy HTTPS)
+- **SECRET_KEY** : depuis `IDS_SECRET_KEY` (sinon généré aléatoire à chaque démarrage)
+- **Audit log** : toutes les actions admin sont tracées (`AuditLog` en DB)
+
+### Gestion des comptes web
+
+L'admin accède à `/admin/users` (visible dans le menu Config → Comptes web) pour :
+
+- Créer des utilisateurs avec rôle
+- Activer/désactiver un compte
+- Voir le journal d'audit (qui a fait quoi, depuis quelle IP, à quelle heure)
+
+---
+
+## Notifications externes
+
+Le Module 4 distribue chaque alerte sur tous les canaux configurés simultanément.
+Configuration via la page **Paramètres** (`/ids/settings`) ou directement dans `ids_config.json`.
+
+### Canaux supportés
+
+| Canal | Format | Configuration |
+|---|---|---|
+| **Email SMTP** | Texte brut (alerte formatée) | host, port, user, password, from, to, tls |
+| **Slack** | Block Kit (couleurs par sévérité) | `slack_webhook` |
+| **Discord** | Embed (couleurs par sévérité) | `discord_webhook` |
+| **MS Teams** | MessageCard | `teams_webhook` |
+| **Syslog** | RFC 3164 UDP → SIEM | `syslog.host`, `syslog.port` (défaut 514) |
+
+### Filtre par sévérité
+
+Le paramètre `min_severity` détermine la sévérité minimale pour notifier (low / medium / high / critical).
+
+Exemple : `min_severity=high` → seules les alertes high et critical déclenchent les webhooks (le stockage local DB et fichier garde tout).
+
+### Exemple `ids_config.json` complet
+
+```json
+{
+  "smtp": {
+    "host": "smtp.gmail.com", "port": 587, "tls": true,
+    "user": "ids@example.com", "password": "...",
+    "from": "ids@example.com", "to": "soc@example.com"
+  },
+  "slack_webhook": "https://hooks.slack.com/services/T00/B00/XYZ",
+  "discord_webhook": "https://discord.com/api/webhooks/123/abc",
+  "teams_webhook": "https://outlook.office.com/webhook/...",
+  "min_severity": "high",
+  "syslog": { "host": "splunk.internal", "port": 514 }
+}
+```
+
+La configuration est rechargée automatiquement toutes les 60 secondes (pas besoin de redémarrer).
 
 ---
 
@@ -1013,6 +1263,53 @@ K — Règles max : [16]
 
 ---
 
+## Variables d'environnement
+
+Toutes les configurations sensibles ou opérationnelles passent par des variables d'environnement.
+
+### Sécurité (auth web)
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `IDS_SECRET_KEY` | aléatoire (re-généré au boot) | Clé Flask pour signer les sessions. **Fournissez-en une fixe en prod** (`openssl rand -hex 32`) pour ne pas déconnecter les utilisateurs à chaque redémarrage |
+| `IDS_ADMIN_PASSWORD` | `admin` | Mot de passe initial du compte admin créé au premier démarrage |
+| `IDS_HTTPS` | `0` | Mettre à `1` derrière un reverse proxy HTTPS → cookie session Secure |
+
+### Réseau & process
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `IDS_BIND` | `0.0.0.0:5000` | Adresse:port d'écoute |
+| `IDS_LOG_LEVEL` | `info` | gunicorn loglevel : debug / info / warning / error |
+| `IDS_ACCESS_LOG` | `-` (stdout) | Fichier access log gunicorn |
+| `IDS_ERROR_LOG` | `-` (stdout) | Fichier error log gunicorn |
+
+### Rétention & maintenance (Module 5)
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `IDS_ALERT_RETENTION_DAYS` | `30` | Supprime les `Alert` acquittées plus anciennes |
+| `IDS_EVENT_RETENTION_DAYS` | `7` | Supprime les `EventEntry` (batch analysis) plus anciens |
+| `IDS_ARCHIVE_RETENTION_DAYS` | `90` | Supprime les fichiers `.gz` plus anciens (events/alerts) |
+| `IDS_AUDIT_RETENTION_DAYS` | `180` | Supprime les `AuditLog` plus anciens |
+| `IDS_COMPRESS_AFTER_DAYS` | `2` | Compresse en `.gz` les fichiers events/alerts plus anciens |
+| `IDS_MAINTENANCE_INTERVAL` | `3600` | Intervalle (s) entre deux passes du Module 5 |
+
+### Exemple de fichier `/etc/ids_web/env`
+
+```bash
+IDS_SECRET_KEY=fd83c1a8e7b9...  # openssl rand -hex 32
+IDS_ADMIN_PASSWORD=mon-mot-de-passe-fort
+IDS_HTTPS=1
+IDS_BIND=127.0.0.1:5000  # derrière nginx
+IDS_ALERT_RETENTION_DAYS=60
+IDS_LOG_LEVEL=warning
+```
+
+À charger dans systemd : `EnvironmentFile=/etc/ids_web/env`.
+
+---
+
 ## Tests réels
 
 ### Test 1 — Connexion SSH autorisée
@@ -1097,93 +1394,167 @@ Pour recevoir les alertes par email, créer un fichier `ids_config.json` à la r
 
 ### Linux avec systemd
 
+### Installation automatique Linux (recommandée)
+
+Le projet fournit un script d'installation production qui :
+- Installe auditd, libpcap, dépendances pip
+- Copie l'app dans `/opt/ids_web/`
+- Configure auditd avec les règles IDS
+- Génère un `SECRET_KEY` aléatoire + mot de passe admin fort
+- Crée le service systemd
+- Démarre l'IDS
+
+```bash
+sudo ./deploy/install.sh
+```
+
+À la fin, le script affiche le mot de passe admin généré (aussi sauvegardé dans `/opt/ids_web/.secrets`).
+
+### Installation manuelle Linux (gunicorn + systemd)
+
 ```bash
 # 1. Copier le projet
 sudo cp -r . /opt/ids_web
 
-# 2. Créer le service systemd
-sudo tee /etc/systemd/system/ids.service > /dev/null <<EOF
-[Unit]
-Description=IDS Web Platform
-After=network.target
+# 2. Installer les dépendances
+sudo pip3 install -r /opt/ids_web/requirements.txt
 
-[Service]
-User=root
-WorkingDirectory=/opt/ids_web
-ExecStart=python3 /opt/ids_web/app.py
-Restart=always
-RestartSec=5
+# 3. Configurer auditd
+sudo cp /opt/ids_web/ids_audit.rules /etc/audit/rules.d/ids.rules
+sudo augenrules --load
 
-[Install]
-WantedBy=multi-user.target
-EOF
+# 4. Personnaliser le service systemd (changer SECRET_KEY et password)
+sudo cp /opt/ids_web/deploy/ids-web.service /etc/systemd/system/
+sudo nano /etc/systemd/system/ids-web.service  # éditer les Environment=
 
-# 3. Activer et démarrer
+# 5. Activer et démarrer
 sudo systemctl daemon-reload
-sudo systemctl enable ids
-sudo systemctl start ids
+sudo systemctl enable --now ids-web
 
-# 4. Vérifier
-sudo systemctl status ids
-sudo journalctl -u ids -f
+# 6. Vérifier
+sudo systemctl status ids-web
+sudo journalctl -u ids-web -f
 ```
 
-### Dépendances
+Le service est servi par **gunicorn** (production), pas le serveur dev de Flask.
+**workers=1 obligatoire** (les démons IDS partagent des threads/queues en mémoire — plusieurs workers causeraient des doublons d'alertes).
+
+### Installation Windows
+
+```powershell
+# Exécuter en Administrateur
+powershell -ExecutionPolicy Bypass -File deploy\install-windows.ps1
+```
+
+Le script vérifie/installe :
+- **Sysmon** (équivalent auditd Windows) — manuel depuis https://docs.microsoft.com/sysinternals/downloads/sysmon
+- **npcap** (capture réseau scapy) — manuel depuis https://npcap.com/
+- Dépendances Python
+- Génère secrets aléatoires (stockés en variables d'environnement système)
+
+Pour exécuter en service Windows, utiliser [NSSM](https://nssm.cc/) :
+
+```cmd
+nssm install IDS_Web "C:\Python\python.exe" "C:\Program Files\IDS_Web\app.py"
+nssm start IDS_Web
+```
+
+### Déploiement Docker
+
+```bash
+# Build
+docker build -t ids-web .
+
+# Run (network=host requis pour scapy sniffer)
+docker run -d --name ids-web \
+  --cap-add NET_RAW --cap-add NET_ADMIN \
+  --network host \
+  -e IDS_SECRET_KEY=$(openssl rand -hex 32) \
+  -e IDS_ADMIN_PASSWORD='choose-a-strong-pwd' \
+  -v $(pwd)/instance:/app/instance \
+  -v $(pwd)/events:/app/events \
+  -v $(pwd)/alerts:/app/alerts \
+  -v /var/log:/var/log:ro \
+  ids-web
+```
+
+Image basée sur `python:3.12-slim` avec healthcheck intégré.
+
+### Reverse proxy nginx (HTTPS recommandé)
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name ids.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/ids.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ids.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+N'oubliez pas `IDS_HTTPS=1` côté IDS pour activer le cookie session `Secure`.
+
+### Dépendances Python
+
+Voir `requirements.txt`. Versions minimales :
 
 ```
 Flask>=3.1.0
 Flask-SQLAlchemy>=3.1.1
-scapy>=2.6.1          # capture réseau (Linux + Windows avec Npcap)
+Werkzeug>=3.0
+scapy>=2.6.1          # capture réseau (Linux + Windows avec npcap)
 psutil>=5.9.0         # surveillance des processus
-python-dotenv>=1.0.1
-gunicorn>=23.0.0      # serveur WSGI pour production Linux
+gunicorn>=23.0.0      # serveur WSGI production Linux
 ```
 
 ---
 
 ## Améliorations prévues
 
-Les fonctionnalités suivantes sont identifiées comme prioritaires pour une version future. Elles ne sont pas encore implémentées.
+### Déjà implémentées dans cette version
 
-### Haute priorité
+- ✅ **Auditd Linux** — 11 règles surveillant exec en root, fichiers critiques, gestion users
+- ✅ **Sysmon Windows** — équivalent auditd via journal Sysmon (Events 1, 3, 7, 11, 12, 13, 22, 25)
+- ✅ **Persistence Linux** — cron, systemd, init.d, profile.d, /root/.ssh
+- ✅ **Persistence Windows** — registre (Run, Winlogon, IFEO...) + services (binPath suspects)
+- ✅ **SUID Monitor Linux** — détection d'escalade de privilèges
+- ✅ **NIDS avancé** — IPv6, JA3 fingerprinting, DNS tunneling
+- ✅ **Authentification web** — Werkzeug + CSRF + audit log + 3 rôles
+- ✅ **Notifications externes** — Slack, Discord, Teams, Syslog vers SIEM
+- ✅ **Pagination + filtres + export CSV** sur alertes et intrusions
+- ✅ **Rétention configurable** — purge auto DB + compression gzip + suppression archives
+- ✅ **Déploiement** — gunicorn + systemd + Dockerfile + scripts install
 
-**Intégration de `auditd` (Linux)**
-La source actuelle (`auth.log`) ne voit que les connexions et les commandes `sudo`. Elle ne voit pas ce que l'utilisateur fait une fois connecté : accès aux fichiers, requêtes base de données, navigation sur des ressources internes. L'intégration du framework d'audit Linux (`auditd`) permettrait de surveiller l'intégralité de l'activité système, y compris chaque appel système, chaque accès fichier et chaque exécution de commande, pour n'importe quel utilisateur.
-
-```bash
-# Exemple de règles auditd à ajouter
-auditctl -w /var/lib/mysql -p rwa -k database_access
-auditctl -a always,exit -F arch=b64 -S execve -k exec_commands
-auditctl -w /etc/passwd -p wa -k passwd_change
-```
+### Restantes
 
 **Corrélation IP → Utilisateur**
-Le Module 1 collecte des événements réseau où `username` est l'adresse IP source. Il n'y a pas encore de mécanisme pour relier une IP à un utilisateur authentifié (par exemple, l'IP `10.0.0.5` = session SSH d'`alice`). Une table de corrélation basée sur les sessions SSH actives permettrait une détection plus précise.
+Le Module 1 collecte des événements réseau où `username` est l'adresse IP source. Une table de corrélation basée sur les sessions SSH/RDP actives permettrait de lier une IP à un utilisateur authentifié pour une détection plus précise.
 
 **Restriction par jour de la semaine**
-Le format `policy.conf` supporte les plages de dates et d'heures, mais pas encore les jours de la semaine. Ajouter un champ `jours` (ex : `LUN-VEN`) permettrait de définir des règles du type "alice peut accéder à la base de données uniquement en semaine, entre 8h et 18h".
-
-### Priorité moyenne
+Le format `policy.conf` supporte les plages de dates et d'heures, mais pas encore les jours de la semaine. Ajouter un champ `jours` (ex : `LUN-VEN`) permettrait : "alice peut accéder à la base uniquement en semaine, 8h-18h".
 
 **Analyse inotify en temps réel**
-Le Module 2 relit les fichiers d'événements toutes les 3 secondes par polling. Remplacer cette approche par `inotify` (Linux) ou `ReadDirectoryChangesW` (Windows) permettrait une réaction instantanée à chaque nouvel événement, sans délai de scrutation.
+Le Module 2 relit les fichiers d'événements toutes les 3 secondes par polling. Remplacer par `inotify` (Linux) / `ReadDirectoryChangesW` (Windows) permettrait une réaction instantanée.
 
-**Réduction des faux positifs du ProcessMonitor**
-Le moniteur de processus déclenche des intrusions pour tout processus dont le nom correspond à sa liste (incluant `kubectl`, `python`, `curl`, etc. si leurs arguments sont suspects). Un système de liste blanche par utilisateur (`alice` est autorisée à lancer `python3`) éviterait les alertes non pertinentes.
+**Réduction des faux positifs ProcessMonitor**
+Système de liste blanche par utilisateur (`alice` est autorisée à lancer `python3`) pour éviter les alertes non pertinentes.
 
-**Support des logs applicatifs**
-Ajouter la lecture des logs de serveurs web (`/var/log/nginx/access.log`, `/var/log/apache2/access.log`) et de bases de données (`/var/log/mysql/mysql.log`) pour détecter les attaques applicatives sans dépendre de la capture réseau.
+**Logs applicatifs**
+Lecture de `/var/log/nginx/access.log`, `/var/log/apache2/access.log`, `/var/log/mysql/mysql.log` pour détecter les attaques applicatives sans dépendre de la capture réseau.
 
-### Priorité basse
+**Threat intelligence**
+Enrichissement automatique des IP sources via AbuseIPDB, AlienVault OTX, GeoIP (Maxmind) pour contextualiser les alertes NIDS.
 
-**Export des alertes vers Syslog / SIEM**
-Permettre l'envoi des alertes vers un serveur syslog centralisé ou un SIEM externe (Splunk, Graylog, Elastic) via le protocole RFC 5424.
+**Règles réseau avec regex**
+Les règles NIDS fichier acceptent des sous-chaînes (`payload_pattern`). Étendre pour supporter des regex complètes sur le payload.
 
-**Authentification de l'interface web**
-L'interface web est actuellement accessible sans authentification. Ajouter un système de login pour protéger l'accès à la configuration et aux données de détection.
-
-**Règles réseau personnalisées avec regex**
-Les règles réseau actuelles supportent des conditions simples (`port==N`, `keyword=X`). Étendre le moteur pour accepter des expressions régulières complètes sur les payloads réseau.
-
-**Suppression automatique des vieux fichiers**
-Les fichiers `events/` et `alerts/` s'accumulent sans limite. Ajouter une politique de rétention configurable (ex : conserver 30 jours).
+**Dashboard graphique temps réel**
+Charts temps réel (Chart.js) sur le tableau de bord pour visualiser l'évolution des alertes par sévérité, par heure, par source.

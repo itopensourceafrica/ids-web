@@ -1014,6 +1014,139 @@ def _extract_sni(raw: bytes) -> str:
     return ''
 
 
+# ── Fingerprint JA3 — TLS ClientHello (identifie client TLS) ───────────────
+# JA3 = MD5(version,ciphers,extensions,curves,curve_formats)
+# Identifie de manière unique le client TLS (curl vs Firefox vs malware)
+def _extract_ja3(raw: bytes) -> str:
+    """Calcule la signature JA3 d'un ClientHello TLS."""
+    import hashlib as _h
+    try:
+        if len(raw) < 6 or raw[0] != 0x16 or raw[5] != 0x01:
+            return ''
+        # TLS version
+        version = int.from_bytes(raw[9:11], 'big')
+        pos = 11 + 32  # skip 32-byte random
+        # Session ID
+        sid_len = raw[pos]
+        pos += 1 + sid_len
+        # Cipher suites
+        cs_len = int.from_bytes(raw[pos:pos+2], 'big')
+        pos += 2
+        ciphers = []
+        for i in range(0, cs_len, 2):
+            c = int.from_bytes(raw[pos+i:pos+i+2], 'big')
+            # Filtrer GREASE values (RFC 8701)
+            if (c & 0x0F0F) != 0x0A0A:
+                ciphers.append(c)
+        pos += cs_len
+        # Compression methods
+        cm_len = raw[pos]
+        pos += 1 + cm_len
+        # Extensions
+        ext_len = int.from_bytes(raw[pos:pos+2], 'big')
+        pos += 2
+        ext_end = pos + ext_len
+        extensions, curves, curve_formats = [], [], []
+        while pos + 4 <= ext_end and pos + 4 <= len(raw):
+            etype = int.from_bytes(raw[pos:pos+2], 'big')
+            elen  = int.from_bytes(raw[pos+2:pos+4], 'big')
+            pos  += 4
+            if (etype & 0x0F0F) != 0x0A0A:
+                extensions.append(etype)
+            if etype == 10 and pos + 2 <= len(raw):  # supported_groups
+                cl = int.from_bytes(raw[pos:pos+2], 'big')
+                for i in range(2, cl + 2, 2):
+                    c = int.from_bytes(raw[pos+i:pos+i+2], 'big')
+                    if (c & 0x0F0F) != 0x0A0A:
+                        curves.append(c)
+            if etype == 11 and pos + 1 <= len(raw):  # ec_point_formats
+                fl = raw[pos]
+                for i in range(1, fl + 1):
+                    curve_formats.append(raw[pos+i])
+            pos += elen
+        # Construire la chaîne JA3
+        s = (f"{version},"
+             f"{'-'.join(str(x) for x in ciphers)},"
+             f"{'-'.join(str(x) for x in extensions)},"
+             f"{'-'.join(str(x) for x in curves)},"
+             f"{'-'.join(str(x) for x in curve_formats)}")
+        return _h.md5(s.encode()).hexdigest()
+    except Exception:
+        return ''
+
+
+# ── JA3 hashes connus comme malicieux (mini base) ───────────────────────────
+KNOWN_BAD_JA3 = {
+    '6734f37431670b3ab4292b8f60f29984': 'Trickbot',
+    '54328bd36c14bd82ddaa0c04b25ed9ad': 'Emotet',
+    'a0e9f5d64349fb13191bc781f81f42e1': 'Cobalt Strike',
+    '72a589da586844d7f0818ce684948eea': 'Tor browser',
+}
+
+
+# ── Détection DNS tunneling ─────────────────────────────────────────────────
+class DnsTunnelTracker:
+    """Détecte le tunneling DNS via:
+       - Trop de requêtes vers un domaine (volume)
+       - Sous-domaines très longs (encoding base64)
+       - Entropie élevée du sous-domaine (données chiffrées)
+    """
+    def __init__(self):
+        self._domain_requests = defaultdict(list)   # domain → [timestamps]
+        self._alerted = {}                          # domain → last_alert_ts
+
+    @staticmethod
+    def _shannon_entropy(s):
+        """Entropie de Shannon (0=déterministe, ~5=aléatoire)."""
+        from math import log2
+        if not s:
+            return 0
+        prob = {c: s.count(c) / len(s) for c in set(s)}
+        return -sum(p * log2(p) for p in prob.values())
+
+    def check(self, qname):
+        """Retourne (suspect, raison) si la requête DNS est suspecte."""
+        if not qname or '.' not in qname:
+            return False, ''
+
+        # Extraire le domaine racine (last 2 labels)
+        parts = qname.rstrip('.').split('.')
+        if len(parts) < 2:
+            return False, ''
+        root = '.'.join(parts[-2:])
+        subdomain = '.'.join(parts[:-2]) if len(parts) > 2 else ''
+
+        now = time.time()
+        self._domain_requests[root] = [
+            t for t in self._domain_requests[root] if now - t < 60
+        ]
+        self._domain_requests[root].append(now)
+
+        # 1. Volume : > 50 requêtes en 60s vers le même domaine
+        if len(self._domain_requests[root]) > 50:
+            if now - self._alerted.get(root, 0) > 300:
+                self._alerted[root] = now
+                return True, f'volume anormal ({len(self._domain_requests[root])} req/60s)'
+
+        # 2. Longueur : sous-domaine > 50 chars
+        if subdomain and len(subdomain) > 50:
+            if now - self._alerted.get(f'len:{root}', 0) > 300:
+                self._alerted[f'len:{root}'] = now
+                return True, f'sous-domaine très long ({len(subdomain)} chars)'
+
+        # 3. Entropie : sous-domaine très aléatoire (>4.0)
+        if subdomain and len(subdomain) > 15:
+            ent = self._shannon_entropy(subdomain.replace('.', ''))
+            if ent > 4.0:
+                if now - self._alerted.get(f'ent:{root}', 0) > 300:
+                    self._alerted[f'ent:{root}'] = now
+                    return True, f'entropie haute ({ent:.2f}) — possible exfiltration'
+
+        return False, ''
+
+_dns_tracker = DnsTunnelTracker()
+
+
 # ── Moteur de règles : applique les règles NIDS à un paquet ─────────────────
 def _apply_rules(src: str, dst: str, port: int, proto: str,
                  payload_bytes: bytes, flags: int = 0):
@@ -1247,9 +1380,9 @@ class NetworkCapture(threading.Thread):
         return True
 
     def _handle(self, pkt):
-        """Callback partagé entre tous les threads sniff."""
+        """Callback partagé entre tous les threads sniff. Supporte IPv4 et IPv6."""
         try:
-            from scapy.all import IP, TCP, UDP, Raw
+            from scapy.all import IP, IPv6, TCP, UDP, Raw, DNS
         except ImportError:
             return
 
@@ -1264,15 +1397,21 @@ class NetworkCapture(threading.Thread):
             except:
                 pass
 
-        if IP not in pkt:
+        # Support IPv4 et IPv6
+        ip_version = 4
+        if IP in pkt:
+            src = pkt[IP].src
+            dst = pkt[IP].dst
+        elif IPv6 in pkt:
+            src = pkt[IPv6].src
+            dst = pkt[IPv6].dst
+            ip_version = 6
+        else:
             return
 
-        src = pkt[IP].src
-        dst = pkt[IP].dst
-
-        # Filtrer le trafic purement loopback (127.0.0.1 ↔ 127.0.0.1)
-        # MAIS accepter les paquets vers/depuis la vraie IP même via lo
-        if src == '127.0.0.1' and dst == '127.0.0.1':
+        # Filtrer le trafic purement loopback
+        if (src == '127.0.0.1' and dst == '127.0.0.1') or \
+           (src == '::1' and dst == '::1'):
             return
 
         with self._lock:
@@ -1321,6 +1460,41 @@ class NetworkCapture(threading.Thread):
         # Ignorer les ports Flask
         if dport in (5000, 5001) or sport in (5000, 5001):
             return
+
+        # ── JA3 fingerprinting (TLS ClientHello) ──────────────────
+        if proto == 'TCP' and dport == 443 and raw_payload:
+            ja3 = _extract_ja3(raw_payload)
+            if ja3 and ja3 in KNOWN_BAD_JA3:
+                malware_name = KNOWN_BAD_JA3[ja3]
+                key = ('ja3', src, ja3)
+                if time.time() - self._db_dedup.get(key, 0) > 300:
+                    self._db_dedup[key] = time.time()
+                    write_event(
+                        username=src, resource='network_scanner',
+                        task='network_access',
+                        execution_date=datetime.utcnow(),
+                        source='nids/ja3',
+                        raw=f'[JA3 MATCH] Fingerprint {malware_name} détecté: '
+                            f'src={src} dst={dst} ja3={ja3}'
+                    )
+
+        # ── DNS tunneling (port 53) ───────────────────────────────
+        if dport == 53 and proto == 'UDP' and DNS in pkt:
+            try:
+                qd = pkt[DNS].qd
+                if qd and qd.qname:
+                    qname = qd.qname.decode('ascii', errors='replace').rstrip('.')
+                    suspect, reason = _dns_tracker.check(qname)
+                    if suspect:
+                        write_event(
+                            username=src, resource='network_scanner',
+                            task='network_access',
+                            execution_date=datetime.utcnow(),
+                            source='nids/dns_tunnel',
+                            raw=f'[DNS TUNNEL] {src} → {qname[:80]} ({reason})'
+                        )
+            except Exception:
+                pass
 
         # Règles NIDS depuis la DB (custom)
         self._apply_db_rules(src, dst, sport, dport, proto, flags)
@@ -1748,6 +1922,239 @@ def _decode_hex(s: str) -> str:
     except Exception:
         pass
     return s
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# LINUX — Détection de persistence (cron, systemd, profile.d, etc.)
+# ════════════════════════════════════════════════════════════════════════════
+
+class LinuxPersistenceMonitor(threading.Thread):
+    """Surveille les emplacements de persistence Linux.
+
+    Détecte les modifications de :
+      - /etc/cron.d/, /etc/cron.hourly/, /etc/cron.daily/, /etc/cron.weekly/
+      - /var/spool/cron/crontabs/
+      - /etc/systemd/system/ et /lib/systemd/system/ (.service files)
+      - /etc/profile.d/
+      - /etc/rc.local
+      - ~/.bashrc, ~/.bash_profile (root)
+      - /etc/init.d/
+    """
+
+    PERSISTENCE_PATHS = [
+        '/etc/cron.d', '/etc/cron.hourly', '/etc/cron.daily',
+        '/etc/cron.weekly', '/etc/cron.monthly',
+        '/var/spool/cron', '/var/spool/cron/crontabs',
+        '/etc/systemd/system', '/lib/systemd/system',
+        '/etc/profile.d', '/etc/init.d',
+        '/root/.ssh',
+    ]
+
+    POLL_INTERVAL = 120  # secondes
+
+    def __init__(self):
+        super().__init__(daemon=True, name='LinuxPersistenceMonitor')
+        self._baseline = {}  # path → {file: mtime}
+
+    def _scan_dir(self, directory):
+        """Retourne {filename: mtime} pour les fichiers d'un dossier."""
+        out = {}
+        if not os.path.isdir(directory):
+            return out
+        try:
+            for name in os.listdir(directory):
+                full = os.path.join(directory, name)
+                if os.path.isfile(full):
+                    try:
+                        out[name] = os.path.getmtime(full)
+                    except Exception:
+                        pass
+        except (PermissionError, OSError):
+            pass
+        return out
+
+    def _build_baseline(self):
+        for path in self.PERSISTENCE_PATHS:
+            self._baseline[path] = self._scan_dir(path)
+
+    def _check_changes(self):
+        for path in self.PERSISTENCE_PATHS:
+            current = self._scan_dir(path)
+            baseline = self._baseline.get(path, {})
+
+            # Nouveaux fichiers
+            for name in current:
+                if name not in baseline:
+                    full = os.path.join(path, name)
+                    write_event(
+                        username='SYSTEM',
+                        resource='file_system',
+                        task='write',
+                        execution_date=datetime.utcnow(),
+                        source='linux/persistence',
+                        raw=f'[PERSISTENCE] Nouveau fichier dans {path}: {name}'
+                    )
+
+            # Fichiers modifiés
+            for name in current:
+                if name in baseline and current[name] != baseline[name]:
+                    full = os.path.join(path, name)
+                    write_event(
+                        username='SYSTEM',
+                        resource='file_system',
+                        task='write',
+                        execution_date=datetime.utcnow(),
+                        source='linux/persistence',
+                        raw=f'[MODIFICATION] Fichier modifié dans {path}: {name}'
+                    )
+
+            # Fichiers supprimés
+            for name in baseline:
+                if name not in current:
+                    write_event(
+                        username='SYSTEM',
+                        resource='file_system',
+                        task='delete',
+                        execution_date=datetime.utcnow(),
+                        source='linux/persistence',
+                        raw=f'[SUPPRESSION] Fichier supprimé dans {path}: {name}'
+                    )
+
+            self._baseline[path] = current
+
+    def run(self):
+        if SYSTEM == 'Windows':
+            return
+        try:
+            self._build_baseline()
+            n = sum(len(v) for v in self._baseline.values())
+            print(f'[MODULE 1] Persistence: baseline construite ({n} fichiers)',
+                  file=sys.stderr)
+            status['sources'].append('Linux Persistence (cron/systemd/init)')
+        except Exception as e:
+            status['errors'].append(f'PersistenceMonitor init: {e}')
+            return
+
+        while True:
+            try:
+                time.sleep(self.POLL_INTERVAL)
+                self._check_changes()
+            except Exception as e:
+                status['errors'].append(f'PersistenceMonitor: {e}')
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# LINUX — Détection d'élévation de privilèges (SUID binaries)
+# ════════════════════════════════════════════════════════════════════════════
+
+class SUIDMonitor(threading.Thread):
+    """Détecte l'apparition de nouveaux binaires SUID/SGID.
+
+    Un binaire SUID s'exécute avec les privilèges de son propriétaire.
+    Un nouveau SUID dans /tmp, /home ou /var → souvent backdoor pour escalade.
+    """
+
+    SCAN_PATHS = ['/usr/bin', '/usr/sbin', '/bin', '/sbin',
+                  '/usr/local/bin', '/usr/local/sbin',
+                  '/tmp', '/var/tmp', '/dev/shm', '/home']
+
+    POLL_INTERVAL = 600  # 10 minutes
+
+    # SUID Linux légitimes connus (whitelist)
+    KNOWN_SUID = {
+        'su', 'sudo', 'passwd', 'mount', 'umount', 'chsh', 'chfn',
+        'gpasswd', 'newgrp', 'ping', 'ping6', 'pkexec', 'crontab',
+        'fusermount', 'sudoedit', 'expiry', 'unix_chkpwd',
+        'mount.cifs', 'mount.nfs', 'ntfs-3g', 'ssh-keysign',
+        'dbus-daemon-launch-helper', 'polkit-agent-helper-1',
+        'snap-confine', 'pam_extrausers_chkpwd', 'bwrap',
+    }
+
+    def __init__(self):
+        super().__init__(daemon=True, name='SUIDMonitor')
+        self._known = set()
+
+    def _find_suid(self):
+        """Trouve tous les fichiers SUID via os.walk + os.stat."""
+        import stat as _stat
+        suid_files = set()
+        for path in self.SCAN_PATHS:
+            if not os.path.isdir(path):
+                continue
+            try:
+                for root, dirs, files in os.walk(path, followlinks=False):
+                    # Limiter la profondeur dans /home et /tmp
+                    if path in ('/home', '/tmp', '/var/tmp', '/dev/shm'):
+                        depth = root[len(path):].count(os.sep)
+                        if depth > 4:
+                            dirs[:] = []
+                            continue
+                    for f in files:
+                        full = os.path.join(root, f)
+                        try:
+                            st = os.lstat(full)
+                            if st.st_mode & (_stat.S_ISUID | _stat.S_ISGID):
+                                suid_files.add(full)
+                        except (OSError, PermissionError):
+                            pass
+            except (PermissionError, OSError):
+                continue
+        return suid_files
+
+    def run(self):
+        if SYSTEM == 'Windows':
+            return
+
+        # Baseline initial
+        try:
+            self._known = self._find_suid()
+            print(f'[MODULE 1] SUID: baseline construite ({len(self._known)} binaires)',
+                  file=sys.stderr)
+            status['sources'].append(f'SUID/SGID monitor ({len(self._known)} binaires)')
+        except Exception as e:
+            status['errors'].append(f'SUIDMonitor init: {e}')
+            return
+
+        while True:
+            try:
+                time.sleep(self.POLL_INTERVAL)
+                current = self._find_suid()
+
+                # Nouveaux SUID
+                new_suid = current - self._known
+                for path in new_suid:
+                    filename = os.path.basename(path)
+                    severity_marker = ''
+                    # SUID dans emplacements suspects
+                    if any(path.startswith(p) for p in ('/tmp', '/home', '/var/tmp', '/dev/shm')):
+                        severity_marker = ' [CRITIQUE — emplacement suspect]'
+                    elif filename not in self.KNOWN_SUID:
+                        severity_marker = ' [SUID non standard]'
+
+                    write_event(
+                        username='SYSTEM',
+                        resource='file_system',
+                        task='write',
+                        execution_date=datetime.utcnow(),
+                        source='linux/suid',
+                        raw=f'[NEW SUID] {path}{severity_marker}'
+                    )
+
+                # SUID supprimés
+                removed = self._known - current
+                for path in removed:
+                    write_event(
+                        username='SYSTEM',
+                        resource='file_system',
+                        task='delete',
+                        execution_date=datetime.utcnow(),
+                        source='linux/suid',
+                        raw=f'[SUID REMOVED] {path}'
+                    )
+
+                self._known = current
+            except Exception as e:
+                status['errors'].append(f'SUIDMonitor: {e}')
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -2211,6 +2618,8 @@ def start(app=None):
     else:
         LinuxLogCollector().start()
         AuditdCollector().start()
+        LinuxPersistenceMonitor().start()   # cron/systemd/init.d
+        SUIDMonitor().start()               # Escalade de privilèges
 
     # ── Collecteurs multi-OS ───────────────────────────────────
     NetworkCapture(app).start()

@@ -1,15 +1,43 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Table des Intrusions</div><div class="pg-sub">Violations de la politique de sécurité</div></div>
+  <div>
+    <div class="pg-title">Table des Intrusions</div>
+    <div class="pg-sub">{{ total }} intrusion(s) — page {{ page }}/{{ pages or 1 }}</div>
+  </div>
   <div class="flex items gap-2">
-    <span class="badge badge-red" style="font-size:12.5px;padding:5px 12px">{{ intrusions|length }} intrusion(s)</span>
-    {% if intrusions %}
-      <a href="/ids/intrusions/reset" onclick="return confirm('Réinitialiser ?')" class="btn btn-danger btn-sm"><i class="fas fa-rotate-left"></i> Réinitialiser</a>
+    <a href="/ids/intrusions/export.csv?{{ request.query_string.decode() }}" class="btn btn-outline btn-sm">
+      <i class="fas fa-file-csv"></i> Export CSV
+    </a>
+    {% if total > 0 %}
+      <a href="/ids/intrusions/reset" onclick="return confirm('Réinitialiser ?')" class="btn btn-danger btn-sm">
+        <i class="fas fa-rotate-left"></i> Réinitialiser
+      </a>
     {% endif %}
   </div>
 </div>
-<div class="card a2">
+
+<!-- Filtres -->
+<div class="card a2" style="margin-bottom:16px; padding:14px 18px">
+  <form method="GET" action="/ids/intrusions" style="display:grid; grid-template-columns: 1fr 140px auto; gap:10px; align-items:end">
+    <div class="f-group" style="margin:0">
+      <label class="f-label" style="font-size:11px">Recherche (user, resource, type)</label>
+      <input type="text" name="q" class="f-input" placeholder="alice, ssh_server, brute_force..." value="{{ filter_q }}">
+    </div>
+    <div class="f-group" style="margin:0">
+      <label class="f-label" style="font-size:11px">Période</label>
+      <select name="days" class="f-select">
+        <option value="">Toutes</option>
+        <option value="1"  {% if filter_days == '1' %}selected{% endif %}>24h</option>
+        <option value="7"  {% if filter_days == '7' %}selected{% endif %}>7 jours</option>
+        <option value="30" {% if filter_days == '30' %}selected{% endif %}>30 jours</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm" style="height:38px"><i class="fas fa-filter"></i> Filtrer</button>
+  </form>
+</div>
+
+<div class="card a3">
   <div class="tbl-wrap">
     <table class="tbl">
       <thead><tr><th>#</th><th>Utilisateur</th><th>Ressource</th><th>Tâche</th><th>Date d'exécution</th><th>Type de violation</th><th>Détectée le</th></tr></thead>
@@ -42,7 +70,7 @@
         <tr>
           <td colspan="7" style="text-align:center;padding:64px;color:var(--text-3)">
             <i class="fas fa-shield-halved" style="font-size:30px;display:block;margin-bottom:12px;opacity:.15;color:var(--blue)"></i>
-            <div style="font-size:14px;margin-bottom:6px">Aucune intrusion détectée</div>
+            <div style="font-size:14px;margin-bottom:6px">Aucune intrusion ne correspond aux filtres</div>
             <div style="font-size:12.5px">Lancez l'analyse depuis le <a href="/ids" style="color:var(--blue);text-decoration:none;font-weight:600">Moteur d'Analyse</a>.</div>
           </td>
         </tr>
@@ -50,5 +78,24 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Pagination -->
+  {% if pages > 1 %}
+    <div class="flex items gap-2" style="padding:14px 18px; justify-content:center">
+      {% set qs = request.query_string.decode().replace('page=' + page|string, '').replace('&&', '&').strip('&') %}
+      {% set sep = '&' if qs else '' %}
+      {% if page > 1 %}
+        <a href="/ids/intrusions?page=1{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">«</a>
+        <a href="/ids/intrusions?page={{ page - 1 }}{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">‹</a>
+      {% endif %}
+      <span style="padding:6px 12px; font-size:13px; color:var(--text-3)">
+        Page {{ page }} / {{ pages }} ({{ total }} total)
+      </span>
+      {% if page < pages %}
+        <a href="/ids/intrusions?page={{ page + 1 }}{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">›</a>
+        <a href="/ids/intrusions?page={{ pages }}{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">»</a>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

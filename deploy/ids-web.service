@@ -1,0 +1,50 @@
+[Unit]
+Description=IDS Web — Système de détection d'intrusions
+Documentation=file:///opt/ids_web/README.md
+After=network-online.target auditd.service
+Wants=auditd.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/ids_web
+
+# Variables d'environnement (sécurité)
+Environment="IDS_SECRET_KEY=CHANGEZ_MOI_PAR_UN_HEX_RANDOM_DE_64_CARACTERES"
+Environment="IDS_ADMIN_PASSWORD=CHANGEZ_MOI"
+Environment="IDS_HTTPS=0"
+Environment="IDS_BIND=0.0.0.0:5000"
+Environment="IDS_ALERT_RETENTION_DAYS=30"
+Environment="IDS_EVENT_RETENTION_DAYS=7"
+Environment="IDS_LOG_LEVEL=info"
+
+# Pour utiliser un fichier d'env à part :
+# EnvironmentFile=/etc/ids_web/env
+
+ExecStart=/usr/bin/gunicorn -c /opt/ids_web/gunicorn_conf.py wsgi:app
+
+# Restart en cas de crash
+Restart=on-failure
+RestartSec=10s
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Limites
+LimitNOFILE=65535
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ids-web
+
+# Sécurité (avec root nécessaire pour scapy/auditd, on ne peut pas tout durcir)
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=multi-user.target

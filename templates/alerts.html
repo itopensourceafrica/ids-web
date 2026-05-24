@@ -3,23 +3,77 @@
 <div class="pg-head a1">
   <div>
     <div class="pg-title">Alertes de Sécurité</div>
-    <div class="pg-sub">{{ alerts|length }} alerte(s) — {{ alerts|selectattr('acknowledged','equalto',false)|list|length }} non lue(s)</div>
+    <div class="pg-sub">{{ total }} alerte(s) — page {{ page }}/{{ pages or 1 }}</div>
   </div>
-  {% if alerts %}
-  <a href="/ack_all_alerts" class="btn btn-outline btn-sm"><i class="fas fa-check-double"></i> Tout acquitter</a>
-  {% endif %}
+  <div class="flex items gap-2">
+    <a href="/alerts/export.csv?{{ request.query_string.decode() }}" class="btn btn-outline btn-sm">
+      <i class="fas fa-file-csv"></i> Export CSV
+    </a>
+    <a href="/ack_all_alerts" class="btn btn-outline btn-sm">
+      <i class="fas fa-check-double"></i> Tout acquitter
+    </a>
+  </div>
 </div>
-<div class="card a2">
+
+<!-- Filtres -->
+<div class="card a2" style="margin-bottom:16px; padding:14px 18px">
+  <form method="GET" action="/alerts" style="display:grid; grid-template-columns: 1fr 160px 160px 140px auto; gap:10px; align-items:end">
+    <div class="f-group" style="margin:0">
+      <label class="f-label" style="font-size:11px">Recherche</label>
+      <input type="text" name="q" class="f-input" placeholder="message..." value="{{ filter_q }}">
+    </div>
+    <div class="f-group" style="margin:0">
+      <label class="f-label" style="font-size:11px">Sévérité</label>
+      <select name="severity" class="f-select">
+        <option value="">Toutes</option>
+        <option value="critical" {% if filter_sev == 'critical' %}selected{% endif %}>Critical</option>
+        <option value="high"     {% if filter_sev == 'high' %}selected{% endif %}>High</option>
+        <option value="medium"   {% if filter_sev == 'medium' %}selected{% endif %}>Medium</option>
+        <option value="low"      {% if filter_sev == 'low' %}selected{% endif %}>Low</option>
+      </select>
+    </div>
+    <div class="f-group" style="margin:0">
+      <label class="f-label" style="font-size:11px">Statut</label>
+      <select name="status" class="f-select">
+        <option value="">Toutes</option>
+        <option value="unack" {% if filter_status == 'unack' %}selected{% endif %}>Non lues</option>
+        <option value="ack"   {% if filter_status == 'ack' %}selected{% endif %}>Acquittées</option>
+      </select>
+    </div>
+    <div class="f-group" style="margin:0">
+      <label class="f-label" style="font-size:11px">Période</label>
+      <select name="days" class="f-select">
+        <option value="">Toutes</option>
+        <option value="1"  {% if filter_days == '1' %}selected{% endif %}>24h</option>
+        <option value="7"  {% if filter_days == '7' %}selected{% endif %}>7 jours</option>
+        <option value="30" {% if filter_days == '30' %}selected{% endif %}>30 jours</option>
+        <option value="90" {% if filter_days == '90' %}selected{% endif %}>90 jours</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm" style="height:38px">
+      <i class="fas fa-filter"></i> Filtrer
+    </button>
+  </form>
+</div>
+
+<div class="card a3">
   <div class="tbl-wrap">
     <table class="tbl">
-      <thead><tr><th>Date</th><th>Source</th><th>Sévérité</th><th>Message</th><th>Statut</th><th>Action</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Date</th><th>Source</th><th>Sévérité</th>
+          <th>Message</th><th>Statut</th><th>Action</th>
+        </tr>
+      </thead>
       <tbody>
       {% for a in alerts %}
         {% set is_ids = a.message and a.message.startswith('[IDS]') %}
         {% set sev = a.severity or 'medium' %}
         {% set sev_badge = 'red' if sev == 'critical' else 'amber' if sev in ('high','medium') else 'gray' %}
         <tr>
-          <td style="color:var(--text-3);font-size:12px;white-space:nowrap">{{ a.timestamp.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td style="color:var(--text-3);font-size:12px;white-space:nowrap">
+            {{ a.timestamp.strftime('%d/%m/%Y %H:%M') }}
+          </td>
           <td>
             {% if is_ids %}
               <span class="badge badge-red"><i class="fas fa-bug"></i> IDS</span>
@@ -36,16 +90,44 @@
               <span class="badge badge-gray">Non lue</span>
             {% endif %}
           </td>
-          <td>{% if not a.acknowledged %}<a href="/ack_alert/{{ a.id }}" class="btn btn-outline btn-sm"><i class="fas fa-check"></i></a>{% endif %}</td>
+          <td>
+            {% if not a.acknowledged %}
+              <a href="/ack_alert/{{ a.id }}" class="btn btn-outline btn-sm">
+                <i class="fas fa-check"></i>
+              </a>
+            {% endif %}
+          </td>
         </tr>
       {% else %}
         <tr><td colspan="6" style="text-align:center;padding:56px;color:var(--text-3)">
           <i class="fas fa-shield-halved" style="font-size:26px;display:block;margin-bottom:10px;opacity:.15;color:var(--green)"></i>
-          Aucune alerte
+          Aucune alerte ne correspond aux filtres
         </td></tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
+
+  <!-- Pagination -->
+  {% if pages > 1 %}
+    <div class="flex items gap-2" style="padding:14px 18px; justify-content:center">
+      {% set qs = request.query_string.decode().replace('page=' + page|string, '').replace('&&', '&').strip('&') %}
+      {% set sep = '&' if qs else '' %}
+
+      {% if page > 1 %}
+        <a href="/alerts?page=1{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">«</a>
+        <a href="/alerts?page={{ page - 1 }}{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">‹</a>
+      {% endif %}
+
+      <span style="padding:6px 12px; font-size:13px; color:var(--text-3)">
+        Page {{ page }} / {{ pages }} ({{ total }} total)
+      </span>
+
+      {% if page < pages %}
+        <a href="/alerts?page={{ page + 1 }}{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">›</a>
+        <a href="/alerts?page={{ pages }}{{ sep }}{{ qs }}" class="btn btn-outline btn-sm">»</a>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

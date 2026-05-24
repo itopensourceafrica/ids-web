@@ -760,10 +760,70 @@ def ids_nids_set_interface():
 # INTRUSIONS
 # ══════════════════════════════════════════════════════════════════
 
+def _intrusions_query(args):
+    """Construit la query Intrusion avec filtres."""
+    q = Intrusion.query.join(EventEntry, Intrusion.entry_id == EventEntry.id)
+
+    # Recherche utilisateur/ressource/type
+    search = args.get('q', '').strip()
+    if search:
+        like = f'%{search}%'
+        q = q.filter((EventEntry.username.ilike(like)) |
+                     (EventEntry.resource_name.ilike(like)) |
+                     (Intrusion.violation_type.ilike(like)))
+
+    # Filtre date
+    days = args.get('days')
+    if days:
+        try:
+            cutoff = datetime.utcnow() - timedelta(days=int(days))
+            q = q.filter(Intrusion.detected_at >= cutoff)
+        except ValueError:
+            pass
+
+    return q.order_by(Intrusion.detected_at.desc())
+
+
 @app.route('/ids/intrusions')
 def ids_intrusions():
+    page = max(1, int(request.args.get('page', 1) or 1))
+    per_page = min(200, int(request.args.get('per_page', 50) or 50))
+
+    q = _intrusions_query(request.args)
+    total = q.count()
+    items = q.limit(per_page).offset((page - 1) * per_page).all()
+    pages = (total + per_page - 1) // per_page
+
     return render_template('ids_intrusions.html',
-        intrusions=Intrusion.query.order_by(Intrusion.detected_at.desc()).all())
+        intrusions=items,
+        page=page, per_page=per_page, pages=pages, total=total,
+        filter_q=request.args.get('q', ''),
+        filter_days=request.args.get('days', ''))
+
+
+@app.route('/ids/intrusions/export.csv')
+def ids_intrusions_export_csv():
+    """Export CSV des intrusions filtrées."""
+    import csv, io
+    q = _intrusions_query(request.args)
+    rows = q.limit(10000).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['id', 'username', 'resource', 'task',
+                     'execution_date', 'violation_type', 'detected_at'])
+    for i in rows:
+        e = i.entry
+        writer.writerow([
+            i.id, e.username, e.resource_name, e.task,
+            e.execution_date.strftime('%Y-%m-%d %H:%M:%S') if e.execution_date else '',
+            (i.violation_type or '').replace('\n', ' '),
+            i.detected_at.strftime('%Y-%m-%d %H:%M:%S') if i.detected_at else '',
+        ])
+
+    return Response(output.getvalue(), mimetype='text/csv',
+        headers={'Content-Disposition':
+            f'attachment; filename=intrusions_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'})
 
 @app.route('/ids/intrusions/partial')
 def ids_intrusions_partial():
