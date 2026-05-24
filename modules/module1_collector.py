@@ -1389,8 +1389,8 @@ class NetworkCapture(threading.Thread):
         with self._lock:
             self._pkt_count += 1
 
-        # Debug : afficher les 10 premiers paquets reçus
-        if self._pkt_count <= 10:
+        # Debug verbeux : seulement si IDS_NIDS_DEBUG=1
+        if os.environ.get('IDS_NIDS_DEBUG') == '1' and self._pkt_count <= 10:
             try:
                 print(f'[MODULE 1] NIDS RAW pkt#{self._pkt_count}: {pkt.summary()[:100]}',
                       file=sys.stderr)
@@ -1418,7 +1418,7 @@ class NetworkCapture(threading.Thread):
             self._count += 1
             sniffer_status['packets_captured'] = self._count
 
-        if self._count <= 20:
+        if os.environ.get('IDS_NIDS_DEBUG') == '1' and self._count <= 20:
             print(f'[MODULE 1] NIDS DEBUG pkt#{self._count}: {src} → {dst}',
                   file=sys.stderr)
 

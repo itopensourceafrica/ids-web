@@ -16,6 +16,9 @@ class WebUser(db.Model):
     active        = db.Column(db.Boolean, default=True)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
     last_login    = db.Column(db.DateTime)
+    # 2FA TOTP (RFC 6238)
+    totp_secret   = db.Column(db.String(64))    # base32, généré par pyotp
+    totp_enabled  = db.Column(db.Boolean, default=False)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -30,6 +33,18 @@ class WebUser(db.Model):
     @property
     def can_edit(self):
         return self.role in ('admin', 'analyst')
+
+
+# ── Brute force tracker (persistant) ──────────────────────────────────────
+class LoginAttempt(db.Model):
+    """Tentative de connexion (échec ou succès) — persisté pour survivre aux restarts."""
+    __tablename__ = 'login_attempt'
+    id          = db.Column(db.Integer, primary_key=True)
+    timestamp   = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    ip_address  = db.Column(db.String(45), index=True)
+    username    = db.Column(db.String(80))
+    success     = db.Column(db.Boolean, default=False)
+    user_agent  = db.Column(db.String(200))
 
 
 # ── Log d'audit des actions admin ──────────────────────────────────────────

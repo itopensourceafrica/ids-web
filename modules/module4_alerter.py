@@ -357,6 +357,44 @@ class AlertDaemon(threading.Thread):
             self._config = _load_full_config()
             self._last_config_load = now
 
+    def _enrich_with_threat_intel(self, data):
+        """Ajoute AbuseIPDB + GeoIP au message si applicable."""
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from threat_intel import enrich_ip, format_enrichment
+        except ImportError:
+            return
+
+        event = data.get('event', {})
+        violation = data.get('violation', {})
+
+        # Trouver une IP candidate (event username pour NIDS, ou raw)
+        ip = event.get('username', '')
+        import re as _re
+        # Cherche une IP dans raw si username n'est pas une IP
+        if not _re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+            m = _re.search(r'\b(\d{1,3}(?:\.\d{1,3}){3})\b', event.get('raw', ''))
+            if m:
+                ip = m.group(1)
+            else:
+                return  # pas d'IP à enrichir
+
+        enrichment = enrich_ip(ip)
+        if not enrichment:
+            return
+
+        # Stocker dans data pour le format/dispatch
+        data['enrichment'] = enrichment
+        formatted = format_enrichment(enrichment)
+        if formatted:
+            # Ajouter à la fin du message
+            violation['message'] = (violation.get('message', '') + ' | ' + formatted)
+
+        # Si score abuse > 75, bumper la sévérité à critical
+        if enrichment.get('abuse_score', 0) >= 75:
+            violation['severity'] = 'critical'
+
     def _dispatch(self, data, alert_text):
         """Envoie l'alerte vers tous les canaux configurés."""
         event     = data.get('event', {})
@@ -419,6 +457,9 @@ class AlertDaemon(threading.Thread):
                 continue
 
             try:
+                # ── Enrichissement threat intel + GeoIP ──────────
+                self._enrich_with_threat_intel(data)
+
                 alert_text = _format_alert(data)
 
                 # Stockage local

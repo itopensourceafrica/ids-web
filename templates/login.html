@@ -122,21 +122,52 @@
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
 
-      <div class="f-group">
-        <label class="f-label">Utilisateur</label>
-        <input type="text" name="username" class="f-input" autocomplete="username"
-               required autofocus>
-      </div>
+      {% if require_totp %}
+        {# Étape 2 : utilisateur retape mot de passe + code TOTP #}
+        <input type="hidden" name="username" value="{{ username }}">
 
-      <div class="f-group">
-        <label class="f-label">Mot de passe</label>
-        <input type="password" name="password" class="f-input"
-               autocomplete="current-password" required>
-      </div>
+        <div style="text-align:center; padding:16px 0">
+          <i class="fas fa-mobile-screen-button" style="font-size:36px; color:#3b6ef0; margin-bottom:10px"></i>
+          <h3 style="font-size:16px; margin-bottom:4px">2FA requis pour {{ username }}</h3>
+          <p style="font-size:13px; color:#6b7280">Confirmez votre mot de passe et le code TOTP</p>
+        </div>
 
-      <button type="submit" class="btn">
-        <i class="fas fa-right-to-bracket"></i> Se connecter
-      </button>
+        <div class="f-group">
+          <label class="f-label">Mot de passe</label>
+          <input type="password" name="password" class="f-input"
+                 autocomplete="current-password" required>
+        </div>
+
+        <div class="f-group">
+          <label class="f-label">Code TOTP (6 chiffres)</label>
+          <input type="text" name="totp_code" class="f-input"
+                 pattern="[0-9]{6}" maxlength="6" required autofocus
+                 style="font-family:monospace; font-size:24px; letter-spacing:8px; text-align:center"
+                 placeholder="123456">
+        </div>
+
+        <button type="submit" class="btn">
+          <i class="fas fa-check"></i> Se connecter
+        </button>
+
+      {% else %}
+        {# Étape 1 : username/password #}
+        <div class="f-group">
+          <label class="f-label">Utilisateur</label>
+          <input type="text" name="username" class="f-input" autocomplete="username"
+                 required autofocus>
+        </div>
+
+        <div class="f-group">
+          <label class="f-label">Mot de passe</label>
+          <input type="password" name="password" class="f-input"
+                 autocomplete="current-password" required>
+        </div>
+
+        <button type="submit" class="btn">
+          <i class="fas fa-right-to-bracket"></i> Se connecter
+        </button>
+      {% endif %}
     </form>
 
     <div class="login-footer">

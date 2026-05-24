@@ -15,11 +15,13 @@ from flask import (Flask, render_template, request, redirect,
                    url_for, flash, Response, stream_with_context, session, abort)
 from models import (db, Alert, Resource, IDSUser, AccessPolicy,
                     EventFile, EventEntry, Intrusion, NidsRule,
-                    WebUser, AuditLog)
+                    WebUser, AuditLog, LoginAttempt)
 from auth import (login_required, admin_required, editor_required,
                   csrf_protect, generate_csrf_token, validate_csrf,
                   login_user, logout_user, current_user, log_action,
                   ensure_default_admin)
+from brute_force import (record_attempt, is_blocked, reset_attempts,
+                         LOCKOUT_THRESHOLD, LOCKOUT_DURATION)
 
 app = Flask(__name__)
 
@@ -49,10 +51,10 @@ def csrf_validate_all():
         if not validate_csrf(token):
             abort(403, 'CSRF token invalide ou manquant')
 
-# ── Auth requise sur toute l'app sauf /login et /favicon ─────────
+# ── Auth requise sur toute l'app sauf /login, /favicon, /health, /metrics ─
 @app.before_request
 def require_login_globally():
-    public = {'login', 'static', None}
+    public = {'login', 'static', 'health', 'metrics', None}
     if request.endpoint in public:
         return
     if request.path == '/favicon.ico':
@@ -78,15 +80,19 @@ def _start_modules():
     from modules import module3_policy    as m3
     from modules import module4_alerter   as m4
     from modules import module5_maintenance as m5
+    from modules import module6_correlation as m6
+    from modules import module7_anomaly as m7
 
-    m3.start(app)           # Politique d'abord (les autres en dépendent)
-    time_module.sleep(1)    # Laisser la politique se charger
-    m1.start(app)           # Collecteur d'événements
-    m2.start(app, _alert_queue)  # Analyseur
-    m4.start(app, _alert_queue)  # Générateur d'alertes
-    m5.start(app)           # Maintenance / housekeeping
+    m3.start(app)                      # Politique d'abord
+    time_module.sleep(1)               # Laisser la politique se charger
+    m1.start(app)                      # Collecteur d'événements
+    m2.start(app, _alert_queue)        # Analyseur
+    m4.start(app, _alert_queue)        # Générateur d'alertes (canaux)
+    m5.start(app)                      # Maintenance / housekeeping
+    m6.start(app, _alert_queue)        # Corrélation kill chain
+    m7.start(app, _alert_queue)        # Détection d'anomalies
 
-    print('[IDS] Les 5 modules sont démarrés.', file=sys.stderr)
+    print('[IDS] Les 7 modules sont démarrés.', file=sys.stderr)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -99,28 +105,137 @@ def favicon():
 
 
 # ══════════════════════════════════════════════════════════════════
+# HEALTHCHECK & MÉTRIQUES (public, sans auth)
+# ══════════════════════════════════════════════════════════════════
+
+@app.route('/health')
+def health():
+    """Healthcheck détaillé — usable par k8s/load balancer/monitoring."""
+    from modules import module1_collector as m1
+    from modules import module2_analyzer  as m2
+    from modules import module3_policy    as m3
+    from modules import module4_alerter   as m4
+    from modules import module5_maintenance as m5
+    from modules import module6_correlation as m6
+    from modules import module7_anomaly   as m7
+
+    try:
+        # Test DB
+        Alert.query.count()
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    all_modules = {
+        'collector':    m1.status.get('running', False),
+        'analyzer':     m2.status.get('running', False),
+        'policy':       m3.status.get('running', False),
+        'alerter':      m4.status.get('running', False),
+        'maintenance':  m5.status.get('running', False),
+        'correlation':  m6.status.get('running', False),
+        'anomaly':      m7.status.get('running', False),
+    }
+
+    healthy = db_ok and all(all_modules.values())
+
+    payload = {
+        'status': 'healthy' if healthy else 'degraded',
+        'database': db_ok,
+        'modules': all_modules,
+        'sniffer': {
+            'active': m1.sniffer_status.get('active', False),
+            'packets_captured': m1.sniffer_status.get('packets_captured', 0),
+        },
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+    }
+    return Response(json.dumps(payload), status=200 if healthy else 503,
+                    mimetype='application/json')
+
+
+@app.route('/metrics')
+def metrics():
+    """Métriques Prometheus (text format).
+
+    Sécurité : protégé par IP whitelist via env var IDS_METRICS_ALLOW
+    (par défaut : localhost uniquement).
+    """
+    allowed = os.environ.get('IDS_METRICS_ALLOW', '127.0.0.1,::1').split(',')
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr) or ''
+    if client_ip.strip() not in [a.strip() for a in allowed]:
+        return Response('Forbidden', status=403)
+
+    from modules import module1_collector as m1
+    from modules import module2_analyzer  as m2
+    from modules import module4_alerter   as m4
+    from modules import module5_maintenance as m5
+
+    # Compteurs DB
+    try:
+        total_alerts = Alert.query.count()
+        unack_alerts = Alert.query.filter_by(acknowledged=False).count()
+        total_intrusions = Intrusion.query.count()
+        critical_unack = Alert.query.filter_by(
+            severity='critical', acknowledged=False).count()
+        high_unack = Alert.query.filter_by(
+            severity='high', acknowledged=False).count()
+    except Exception:
+        total_alerts = unack_alerts = total_intrusions = critical_unack = high_unack = 0
+
+    lines = [
+        '# HELP ids_alerts_total Total number of alerts',
+        '# TYPE ids_alerts_total counter',
+        f'ids_alerts_total {total_alerts}',
+        '',
+        '# HELP ids_alerts_unacknowledged Unacknowledged alerts by severity',
+        '# TYPE ids_alerts_unacknowledged gauge',
+        f'ids_alerts_unacknowledged{{severity="critical"}} {critical_unack}',
+        f'ids_alerts_unacknowledged{{severity="high"}} {high_unack}',
+        f'ids_alerts_unacknowledged{{severity="all"}} {unack_alerts}',
+        '',
+        '# HELP ids_intrusions_total Total intrusions detected',
+        '# TYPE ids_intrusions_total counter',
+        f'ids_intrusions_total {total_intrusions}',
+        '',
+        '# HELP ids_nids_packets_captured Packets captured by NIDS',
+        '# TYPE ids_nids_packets_captured counter',
+        f'ids_nids_packets_captured {m1.sniffer_status.get("packets_captured", 0)}',
+        '',
+        '# HELP ids_nids_active NIDS sniffer state (1=running)',
+        '# TYPE ids_nids_active gauge',
+        f'ids_nids_active {1 if m1.sniffer_status.get("active") else 0}',
+        '',
+        '# HELP ids_module_running State of each daemon (1=running)',
+        '# TYPE ids_module_running gauge',
+        f'ids_module_running{{module="collector"}} {1 if m1.status.get("running") else 0}',
+        f'ids_module_running{{module="analyzer"}} {1 if m2.status.get("running") else 0}',
+        f'ids_module_running{{module="alerter"}} {1 if m4.status.get("running") else 0}',
+        f'ids_module_running{{module="maintenance"}} {1 if m5.status.get("running") else 0}',
+        '',
+        '# HELP ids_analyzer_processed Events processed by analyzer',
+        '# TYPE ids_analyzer_processed counter',
+        f'ids_analyzer_processed {m2.status.get("analyzed", 0)}',
+        '',
+        '# HELP ids_alerter_sent Alerts dispatched by alerter',
+        '# TYPE ids_alerter_sent counter',
+        f'ids_alerter_sent {m4.status.get("alerts_sent", 0)}',
+        '',
+        '# HELP ids_maintenance_purged Items purged by maintenance',
+        '# TYPE ids_maintenance_purged counter',
+        f'ids_maintenance_purged{{type="alerts"}} {m5.status.get("alerts_purged", 0)}',
+        f'ids_maintenance_purged{{type="intrusions"}} {m5.status.get("intrusions_purged", 0)}',
+        f'ids_maintenance_purged{{type="entries"}} {m5.status.get("entries_purged", 0)}',
+    ]
+    return Response('\n'.join(lines) + '\n', mimetype='text/plain; version=0.0.4')
+
+
+# ══════════════════════════════════════════════════════════════════
 # AUTHENTIFICATION
 # ══════════════════════════════════════════════════════════════════
 
-# Brute force tracker (en mémoire, par IP)
-_login_attempts = {}  # ip → [timestamps]
-LOGIN_MAX_ATTEMPTS = 5
-LOGIN_WINDOW = 300  # 5 minutes
-
-def _is_brute_force(ip):
-    """Vérifie si une IP a trop d'échecs récents."""
-    now = time_module.time()
-    attempts = [t for t in _login_attempts.get(ip, []) if now - t < LOGIN_WINDOW]
-    _login_attempts[ip] = attempts
-    return len(attempts) >= LOGIN_MAX_ATTEMPTS
-
-def _record_failed_login(ip):
-    _login_attempts.setdefault(ip, []).append(time_module.time())
-
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr) or ''
+    ua = request.headers.get('User-Agent', '')
 
     if request.method == 'POST':
         # Validation CSRF manuelle (la global before_request exempte /login)
@@ -129,27 +244,52 @@ def login():
             flash('Token CSRF invalide. Rechargez la page.', 'danger')
             return redirect(url_for('login'))
 
-        if _is_brute_force(ip):
-            flash('Trop de tentatives échouées. Réessayez dans 5 minutes.', 'danger')
+        # Vérification brute force (persistant en DB)
+        blocked, remaining = is_blocked(ip)
+        if blocked:
+            mins = remaining // 60
+            flash(f'Trop de tentatives échouées. Réessayez dans {mins} min.', 'danger')
             return redirect(url_for('login'))
 
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
+        totp_code = request.form.get('totp_code', '').strip()
 
         user = WebUser.query.filter_by(username=username, active=True).first()
+
+        # Authentification : password OK ?
         if user and user.check_password(password):
+            # Si 2FA activé, vérifier le code TOTP
+            if user.totp_enabled:
+                import pyotp
+                if not user.totp_secret:
+                    flash('Erreur 2FA : secret manquant. Contactez un admin.', 'danger')
+                    return redirect(url_for('login'))
+                totp = pyotp.TOTP(user.totp_secret)
+                if not totp_code:
+                    # Re-afficher le login avec un champ TOTP
+                    return render_template('login.html',
+                        require_totp=True, username=username)
+                if not totp.verify(totp_code, valid_window=1):
+                    record_attempt(ip, username, success=False, user_agent=ua)
+                    flash('Code 2FA invalide.', 'danger')
+                    return render_template('login.html',
+                        require_totp=True, username=username)
+
+            # Succès
             login_user(user)
             user.last_login = datetime.utcnow()
+            record_attempt(ip, username, success=True, user_agent=ua)
+            reset_attempts(ip)
             db.session.commit()
             log_action('login', target=username)
-            _login_attempts.pop(ip, None)
 
             next_url = request.form.get('next') or url_for('index')
             if not next_url.startswith('/'):
                 next_url = url_for('index')
             return redirect(next_url)
         else:
-            _record_failed_login(ip)
+            record_attempt(ip, username, success=False, user_agent=ua)
             flash('Identifiants invalides.', 'danger')
             return redirect(url_for('login'))
 
@@ -164,6 +304,90 @@ def logout():
     logout_user()
     flash('Déconnexion réussie.', 'info')
     return redirect(url_for('login'))
+
+
+# ── 2FA TOTP (intégré dans /account/password) ─────────────────────
+
+@app.route('/account/2fa/setup', methods=['POST'])
+@login_required
+def account_2fa_setup():
+    """Génère un nouveau secret TOTP + QR code pour l'activation.
+    Affiche le formulaire de confirmation sur la page sécurité."""
+    import pyotp, qrcode, io, base64
+    user = current_user()
+
+    # Générer un nouveau secret (en attente de validation)
+    secret = pyotp.random_base32()
+    session['_pending_totp_secret'] = secret
+
+    # URI standard otpauth:// pour Google Authenticator/Authy
+    totp_uri = pyotp.TOTP(secret).provisioning_uri(
+        name=user.username,
+        issuer_name='IDS Web'
+    )
+
+    # Générer le QR code en base64
+    img = qrcode.make(totp_uri)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    qr_b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+
+    return render_template('change_password.html',
+        user=user, setup_mode=True,
+        secret=secret, qr_b64=qr_b64, totp_uri=totp_uri)
+
+
+@app.route('/account/2fa/confirm', methods=['POST'])
+@login_required
+def account_2fa_confirm():
+    """Active le 2FA après vérification du code."""
+    import pyotp
+    user = current_user()
+    code = request.form.get('totp_code', '').strip()
+    pending_secret = session.get('_pending_totp_secret')
+
+    if not pending_secret:
+        flash('Session expirée. Recommencez l\'activation.', 'danger')
+        return redirect(url_for('change_password'))
+
+    totp = pyotp.TOTP(pending_secret)
+    if not totp.verify(code, valid_window=1):
+        flash('Code invalide. Vérifiez l\'heure de votre téléphone.', 'danger')
+        return redirect(url_for('change_password'))
+
+    user.totp_secret = pending_secret
+    user.totp_enabled = True
+    db.session.commit()
+    session.pop('_pending_totp_secret', None)
+    log_action('2fa_enable', target=user.username)
+    flash('2FA activé avec succès !', 'success')
+    return redirect(url_for('change_password'))
+
+
+@app.route('/account/2fa/disable', methods=['POST'])
+@login_required
+def account_2fa_disable():
+    """Désactive le 2FA (requiert mot de passe pour confirmer)."""
+    user = current_user()
+    password = request.form.get('password', '')
+
+    if not user.check_password(password):
+        flash('Mot de passe incorrect.', 'danger')
+        return redirect(url_for('change_password'))
+
+    user.totp_secret = None
+    user.totp_enabled = False
+    db.session.commit()
+    log_action('2fa_disable', target=user.username)
+    flash('2FA désactivé.', 'info')
+    return redirect(url_for('change_password'))
+
+
+# Redirection compat : /account/2fa → /account/password
+@app.route('/account/2fa')
+@login_required
+def account_2fa_redirect():
+    return redirect(url_for('change_password'))
 
 
 @app.route('/account/password', methods=['GET', 'POST'])
@@ -358,6 +582,7 @@ def alerts_export_csv():
 
 
 @app.route('/ack_alert/<int:alert_id>')
+@editor_required
 def ack_alert(alert_id):
     alert = Alert.query.get_or_404(alert_id)
     alert.acknowledged = True
@@ -365,6 +590,7 @@ def ack_alert(alert_id):
     return redirect(url_for('alerts', **{k: v for k, v in request.args.items()}))
 
 @app.route('/ack_all_alerts')
+@editor_required
 def ack_all_alerts():
     Alert.query.filter_by(acknowledged=False).update({'acknowledged': True})
     db.session.commit()
@@ -392,7 +618,16 @@ def ids_policy():
 
 # ── Règles NIDS ────────────────────────────────────────────────────────────
 @app.route('/ids/policy/nids/add', methods=['POST'])
+@editor_required
 def ids_add_nids_rule():
+    from validators import validate_nids_rule_form
+
+    valid, errors = validate_nids_rule_form(request.form)
+    if not valid:
+        for err in errors:
+            flash(err, 'danger')
+        return redirect(url_for('ids_policy', type='nids'))
+
     db.session.add(NidsRule(
         name      = request.form['name'].strip(),
         version   = request.form.get('version', 'ipv4'),
@@ -407,10 +642,12 @@ def ids_add_nids_rule():
         active    = True,
     ))
     db.session.commit()
+    log_action('nids_rule_create', target=request.form['name'].strip())
     flash('Règle NIDS ajoutée.', 'success')
     return redirect(url_for('ids_policy', type='nids'))
 
 @app.route('/ids/policy/nids/toggle/<int:rule_id>')
+@editor_required
 def ids_toggle_nids_rule(rule_id):
     r = NidsRule.query.get_or_404(rule_id)
     r.active = not r.active
@@ -418,6 +655,7 @@ def ids_toggle_nids_rule(rule_id):
     return redirect(url_for('ids_policy', type='nids'))
 
 @app.route('/ids/policy/nids/delete/<int:rule_id>')
+@editor_required
 def ids_delete_nids_rule(rule_id):
     db.session.delete(NidsRule.query.get_or_404(rule_id))
     db.session.commit()
@@ -425,6 +663,7 @@ def ids_delete_nids_rule(rule_id):
     return redirect(url_for('ids_policy', type='nids'))
 
 @app.route('/ids/policy/add', methods=['POST'])
+@editor_required
 def ids_add_policy():
     s_date = request.form['start_date']
     s_time = request.form.get('start_time', '00:00') or '00:00'
@@ -443,6 +682,7 @@ def ids_add_policy():
     return redirect(url_for('ids_policy'))
 
 @app.route('/ids/policy/toggle/<int:policy_id>')
+@editor_required
 def ids_toggle_policy(policy_id):
     p = AccessPolicy.query.get_or_404(policy_id)
     p.active = not p.active
@@ -450,6 +690,7 @@ def ids_toggle_policy(policy_id):
     return redirect(url_for('ids_policy'))
 
 @app.route('/ids/policy/delete/<int:policy_id>')
+@editor_required
 def ids_delete_policy(policy_id):
     db.session.delete(AccessPolicy.query.get_or_404(policy_id))
     db.session.commit()
@@ -457,6 +698,7 @@ def ids_delete_policy(policy_id):
     return redirect(url_for('ids_policy'))
 
 @app.route('/ids/policy/import', methods=['POST'])
+@editor_required
 def ids_import_policy():
     """Importe policy.conf → DB."""
     from modules import module3_policy as m3
@@ -469,6 +711,7 @@ def ids_import_policy():
     return redirect(url_for('ids_policy'))
 
 @app.route('/ids/policy/export')
+@editor_required
 def ids_export_policy():
     """Exporte DB → policy.conf."""
     from modules import module3_policy as m3
@@ -487,6 +730,7 @@ def ids_download_policy():
                     headers={'Content-Disposition': 'attachment; filename=policy.conf'})
 
 @app.route('/ids/policy/upload', methods=['POST'])
+@editor_required
 def ids_upload_policy():
     """Upload un fichier policy.conf depuis le navigateur."""
     from modules import module3_policy as m3
@@ -516,6 +760,7 @@ def ids_users():
     return render_template('ids_users.html', users=IDSUser.query.all())
 
 @app.route('/ids/users/add', methods=['POST'])
+@editor_required
 def ids_add_user():
     username = request.form['username'].strip()
     if IDSUser.query.filter_by(username=username).first():
@@ -527,6 +772,7 @@ def ids_add_user():
     return redirect(url_for('ids_users'))
 
 @app.route('/ids/users/delete/<int:user_id>')
+@editor_required
 def ids_delete_user(user_id):
     user = IDSUser.query.get_or_404(user_id)
     AccessPolicy.query.filter_by(user_id=user.id).delete()
@@ -540,6 +786,7 @@ def ids_resources():
     return render_template('ids_resources.html', resources=Resource.query.all())
 
 @app.route('/ids/resources/add', methods=['POST'])
+@editor_required
 def ids_add_resource():
     name = request.form['name'].strip()
     if Resource.query.filter_by(name=name).first():
@@ -551,6 +798,7 @@ def ids_add_resource():
     return redirect(url_for('ids_resources'))
 
 @app.route('/ids/resources/delete/<int:resource_id>')
+@editor_required
 def ids_delete_resource(resource_id):
     res = Resource.query.get_or_404(resource_id)
     AccessPolicy.query.filter_by(resource_id=res.id).delete()
@@ -583,6 +831,7 @@ def ids_dashboard():
         m3=m3.status, m4=m4.status)
 
 @app.route('/ids/run', methods=['POST'])
+@editor_required
 def ids_run():
     from modules import module3_policy as m3
     from modules.module2_analyzer import _check_event
@@ -658,6 +907,7 @@ def ids_files():
         files=EventFile.query.order_by(EventFile.file_number).all())
 
 @app.route('/ids/files/create', methods=['POST'])
+@editor_required
 def ids_create_file():
     next_num = (EventFile.query.count() or 0) + 1
     db.session.add(EventFile(file_number=next_num,
@@ -667,6 +917,7 @@ def ids_create_file():
     return redirect(url_for('ids_files'))
 
 @app.route('/ids/files/delete/<int:file_id>')
+@editor_required
 def ids_delete_file(file_id):
     EventEntry.query.filter_by(file_id=file_id).delete()
     db.session.delete(EventFile.query.get_or_404(file_id))
@@ -684,6 +935,7 @@ def ids_file_detail(file_id):
         resources=Resource.query.all())
 
 @app.route('/ids/files/<int:file_id>/add_entry', methods=['POST'])
+@editor_required
 def ids_add_entry(file_id):
     from modules.module2_analyzer import _check_event, _record_intrusion
     from modules import module3_policy as m3
@@ -749,6 +1001,7 @@ def ids_nids():
         nids_rules_count=rules_count)
 
 @app.route('/ids/nids/set_interface', methods=['POST'])
+@editor_required
 def ids_nids_set_interface():
     interface = request.form.get('interface', 'any')
     from modules import module1_collector as m1
@@ -843,6 +1096,7 @@ def ids_intrusions_partial():
     return rows or '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-3)">Aucune intrusion</td></tr>'
 
 @app.route('/ids/intrusions/reset')
+@editor_required
 def ids_reset_intrusions():
     Intrusion.query.delete()
     Alert.query.filter(Alert.message.like('[IDS]%')).delete()
@@ -1054,8 +1308,25 @@ def _load_policy_direct_helper(flask_app):
         ]
 
 
+def _migrate_schema():
+    """Ajoute les nouvelles colonnes aux tables existantes (SQLite ALTER TABLE).
+    Évite les erreurs si la DB date d'une version antérieure du modèle."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(db.engine)
+
+    # web_user : totp_secret, totp_enabled
+    if inspector.has_table('web_user'):
+        cols = {c['name'] for c in inspector.get_columns('web_user')}
+        with db.engine.begin() as conn:
+            if 'totp_secret' not in cols:
+                conn.execute(text('ALTER TABLE web_user ADD COLUMN totp_secret VARCHAR(64)'))
+            if 'totp_enabled' not in cols:
+                conn.execute(text('ALTER TABLE web_user ADD COLUMN totp_enabled BOOLEAN DEFAULT 0'))
+
+
 with app.app_context():
     db.create_all()
+    _migrate_schema()
     _seed()
     # Compte admin par défaut (admin/admin si IDS_ADMIN_PASSWORD non défini)
     ensure_default_admin(app)
