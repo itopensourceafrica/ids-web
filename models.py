@@ -94,11 +94,18 @@ class AccessPolicy(db.Model):
     user_id     = db.Column(db.Integer, db.ForeignKey('ids_user.id'),  nullable=False)
     resource_id = db.Column(db.Integer, db.ForeignKey('resource.id'),  nullable=False)
     task        = db.Column(db.String(100), nullable=False)
-    policy_type = db.Column(db.String(10), default='allow')  # 'allow' ou 'deny'
+    policy_type = db.Column(db.String(10), default='allow')  # 'allow' | 'deny' | 'detect'
     start_date  = db.Column(db.DateTime, nullable=False)
     end_date    = db.Column(db.DateTime, nullable=False)
     active      = db.Column(db.Boolean, default=True)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # ── Champs pour les règles policy_type='detect' (patterns comportementaux) ──
+    # Ex: 5 failed_login sur ssh_server en 5s → alerte "BRUTE_FORCE_SSH"
+    threshold    = db.Column(db.Integer)              # nb d'événements seuil
+    window_sec   = db.Column(db.Integer)              # fenêtre temporelle (sec)
+    severity     = db.Column(db.String(20))           # critical/high/medium/low
+    pattern_name = db.Column(db.String(80))           # nom affiché dans l'alerte
 
     user     = db.relationship('IDSUser',  backref='policies')
     resource = db.relationship('Resource', backref='policies')

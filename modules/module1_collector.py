@@ -29,7 +29,10 @@ import subprocess
 from collections import defaultdict
 from datetime import datetime
 
-import pwd as _pwd
+try:
+    import pwd as _pwd          # Unix uniquement
+except ImportError:
+    _pwd = None                 # Windows : module pwd inexistant
 
 # ── Statut partagé (lu par l'interface web) ─────────────────────────────────
 status = {
@@ -231,7 +234,14 @@ def _parse_audit_line(line: str) -> dict | None:
         if user_m:
             ts = datetime.fromtimestamp(float(ts_m.group(1))) if ts_m else datetime.utcnow()
             task = 'login' if (res_m and 'success' in res_m.group(1)) else 'failed_login'
-            return dict(username=user_m.group(1), resource='system', task=task,
+            # Détecter la ressource source (ssh / console / autre)
+            if 'sshd' in line or 'terminal=ssh' in line:
+                resource = 'ssh_server'
+            elif 'terminal=tty' in line or 'terminal=:0' in line:
+                resource = 'system'
+            else:
+                resource = 'system'
+            return dict(username=user_m.group(1), resource=resource, task=task,
                         execution_date=ts, source='audit.log', raw=line.strip())
 
     if 'type=EXECVE' in line:
@@ -1895,6 +1905,8 @@ def _setup_audit_rules():
 
 def _resolve_uid(uid_str: str) -> str:
     """Convertit un UID numérique en nom d'utilisateur."""
+    if _pwd is None:
+        return uid_str          # Windows : pas de résolution UID→nom
     try:
         uid = int(uid_str)
         if uid in (4294967295, -1):

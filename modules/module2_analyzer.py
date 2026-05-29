@@ -39,25 +39,64 @@ status = {
 # Queue partagée avec le Module 4
 _alert_queue = None
 
-# ── Détection Brute Force (fenêtre glissante) ────────────────────────────────
-_bf_tracker: dict = defaultdict(list)   # username → [timestamps des failed_login]
-BRUTE_FORCE_THRESHOLD = 5               # tentatives avant alerte
-BRUTE_FORCE_WINDOW    = 60              # secondes
+# ── Détection comportementale par patterns (policy_type='detect') ────────────
+# Tracker : (pattern_name, username) → [timestamps des événements matchants]
+_pattern_tracker: dict = defaultdict(list)
+# Cooldown : (pattern_name, username) → dernier ts d'alerte (pour éviter spam)
+_pattern_cooldown: dict = {}
+PATTERN_COOLDOWN_SEC = 30                # min entre 2 alertes du même pattern/user
 
-def _detect_brute_force(username: str) -> tuple[bool, int]:
+
+def _check_patterns(event: dict, detect_rules: list) -> list:
     """
-    Retourne (True, count) si le seuil brute force est atteint.
-    Utilise une fenêtre glissante de BRUTE_FORCE_WINDOW secondes.
+    Compare un événement aux règles policy_type='detect' (patterns comportementaux).
+    Retourne la liste des violations déclenchées (généralement 0 ou 1).
+
+    Exemple de règle detect : (resource=ssh_server, task=failed_login,
+                               threshold=5, window_sec=5)
+        → 5 failed_login sur ssh_server en 5s = alerte 'BRUTE_FORCE_SSH'
     """
-    now = time.time()
-    _bf_tracker[username] = [t for t in _bf_tracker[username]
-                              if now - t < BRUTE_FORCE_WINDOW]
-    _bf_tracker[username].append(now)
-    count = len(_bf_tracker[username])
-    # Déclencher au seuil, puis tous les 5 supplémentaires
-    triggered = (count == BRUTE_FORCE_THRESHOLD or
-                 (count > BRUTE_FORCE_THRESHOLD and (count - BRUTE_FORCE_THRESHOLD) % 5 == 0))
-    return triggered, count
+    username = event.get('username', '')
+    resource = event.get('resource', '')
+    task     = event.get('task', '')
+    now      = time.time()
+
+    violations = []
+    for rule in detect_rules:
+        # Wildcards '*' acceptés sur resource et task
+        if rule['resource'] != '*' and rule['resource'] != resource:
+            continue
+        if rule['task'] != '*' and rule['task'] != task:
+            continue
+        # Username : '*' = tout user, sinon match exact
+        if rule['username'] != '*' and rule['username'] != username:
+            continue
+
+        # Trackeur séparé par (pattern, user) — chaque user a son compteur
+        key = (rule['pattern_name'], username)
+        # Nettoyer la fenêtre glissante
+        _pattern_tracker[key] = [t for t in _pattern_tracker[key]
+                                  if now - t < rule['window_sec']]
+        _pattern_tracker[key].append(now)
+        count = len(_pattern_tracker[key])
+
+        if count >= rule['threshold']:
+            # Cooldown : ne pas spammer la même alerte
+            last_alert = _pattern_cooldown.get(key, 0)
+            if now - last_alert < PATTERN_COOLDOWN_SEC:
+                continue
+            _pattern_cooldown[key] = now
+            # Reset le compteur pour repartir d'une fenêtre propre
+            _pattern_tracker[key] = []
+
+            violations.append({
+                'type':    rule['pattern_name'],
+                'message': (f"[{rule['pattern_name']}] {rule['description']} "
+                            f"— user '{username}', {count} événements en "
+                            f"{rule['window_sec']}s"),
+                'severity': rule['severity'] or 'high',
+            })
+    return violations
 
 
 def _load_cursor() -> dict:
@@ -76,21 +115,37 @@ def _save_cursor(cursor: dict):
 
 
 def _load_policy(app):
-    """Charge la politique depuis la DB (AccessPolicy)."""
+    """Charge la politique depuis la DB (AccessPolicy).
+    Retourne (allow_deny_rules, detect_rules) — séparation pour clarté."""
     with app.app_context():
         from models import AccessPolicy
         policies = AccessPolicy.query.filter_by(active=True).all()
-        return [
-            {
-                'username':   p.user.username,
-                'resource':   p.resource.name,
-                'task':       p.task,
-                'policy_type': p.policy_type,  # 'allow' ou 'deny'
-                'start_date': p.start_date,
-                'end_date':   p.end_date,
-            }
-            for p in policies
-        ]
+        allow_deny = []
+        detect     = []
+        for p in policies:
+            if p.policy_type == 'detect':
+                if not p.threshold or not p.window_sec:
+                    continue  # Règle detect invalide (manque seuil)
+                detect.append({
+                    'pattern_name': p.pattern_name or f'PATTERN_{p.id}',
+                    'username':     p.user.username,    # ex: '*' (user virtuel)
+                    'resource':     p.resource.name,
+                    'task':         p.task,
+                    'threshold':    p.threshold,
+                    'window_sec':   p.window_sec,
+                    'severity':     p.severity or 'high',
+                    'description':  f"Pattern détecté",
+                })
+            else:
+                allow_deny.append({
+                    'username':    p.user.username,
+                    'resource':    p.resource.name,
+                    'task':        p.task,
+                    'policy_type': p.policy_type,
+                    'start_date':  p.start_date,
+                    'end_date':    p.end_date,
+                })
+        return allow_deny, detect
 
 
 def _check_event(event: dict, policies: list) -> dict | None:
@@ -170,7 +225,8 @@ def _check_event(event: dict, policies: list) -> dict | None:
     return None  # Accès autorisé
 
 
-def _process_file(filepath: str, cursor: dict, policies: list, app) -> int:
+def _process_file(filepath: str, cursor: dict, policies: list,
+                  detect_rules: list, app) -> int:
     """
     Lit les nouvelles lignes d'un fichier JSONL depuis la position du curseur.
     Retourne le nombre de nouvelles intrusions détectées.
@@ -197,27 +253,18 @@ def _process_file(filepath: str, cursor: dict, policies: list, app) -> int:
 
                 status['analyzed'] += 1
 
-                # 1. Vérification politique normale
+                # 1. Vérification politique allow/deny
                 violation = _check_event(event, policies)
                 if violation:
                     _record_intrusion(event, violation, app)
                     intrusions += 1
                     status['intrusions'] += 1
 
-                # 2. Détection brute force (indépendante du check politique)
-                if event.get('task') == 'failed_login':
-                    triggered, count = _detect_brute_force(event.get('username', ''))
-                    if triggered:
-                        bf_violation = {
-                            'type':    'brute_force',
-                            'message': (f"Brute force détecté : {count} tentatives échouées "
-                                        f"en {BRUTE_FORCE_WINDOW}s pour "
-                                        f"'{event.get('username','')}'"),
-                            'severity': 'critical',
-                        }
-                        _record_intrusion(event, bf_violation, app)
-                        intrusions += 1
-                        status['intrusions'] += 1
+                # 2. Détection comportementale via patterns 'detect' (configurables en DB)
+                for pat_violation in _check_patterns(event, detect_rules):
+                    _record_intrusion(event, pat_violation, app)
+                    intrusions += 1
+                    status['intrusions'] += 1
 
         cursor[fname] = size
 
@@ -287,7 +334,8 @@ class EventAnalyzer(threading.Thread):
     def run(self):
         cursor   = _load_cursor()
         last_policy_reload = 0
-        policies = []
+        policies      = []
+        detect_rules  = []
 
         status['running'] = True
         print('[MODULE 2] Analyseur démarré', file=sys.stderr)
@@ -296,8 +344,11 @@ class EventAnalyzer(threading.Thread):
             # Recharger la politique toutes les 30 secondes
             if time.time() - last_policy_reload > 30:
                 try:
-                    policies = _load_policy(self.app)
+                    policies, detect_rules = _load_policy(self.app)
                     last_policy_reload = time.time()
+                    if detect_rules:
+                        print(f'[MODULE 2] {len(detect_rules)} patterns detect chargés',
+                              file=sys.stderr)
                 except Exception as e:
                     status['errors'].append(f'Policy reload: {e}')
 
@@ -306,7 +357,7 @@ class EventAnalyzer(threading.Thread):
                 for fname in sorted(os.listdir(EVENTS_DIR)):
                     if fname.endswith('.jsonl'):
                         fpath = os.path.join(EVENTS_DIR, fname)
-                        _process_file(fpath, cursor, policies, self.app)
+                        _process_file(fpath, cursor, policies, detect_rules, self.app)
 
             _save_cursor(cursor)
             status['last_check'] = datetime.utcnow().strftime('%H:%M:%S')

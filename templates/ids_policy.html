@@ -27,13 +27,17 @@
   </div>
 </div>
 
-<!-- Toggle HIDS / NIDS -->
+<!-- Toggle HIDS / DETECT / NIDS -->
 <div class="card a1" style="margin-bottom:16px; padding:14px 18px">
   <div class="flex items gap-2" style="font-size:13.5px">
     <span style="color:var(--text-3); margin-right:6px">Type de règle :</span>
     <a href="/ids/policy?type=hids"
        class="btn btn-{{ 'primary' if rule_type == 'hids' else 'outline' }} btn-sm">
       <i class="fas fa-user-shield"></i> HIDS — Accès utilisateurs
+    </a>
+    <a href="/ids/policy?type=detect"
+       class="btn btn-{{ 'primary' if rule_type == 'detect' else 'outline' }} btn-sm">
+      <i class="fas fa-bullseye"></i> Patterns Detect — Brute force & seuils
     </a>
     <a href="/ids/policy?type=nids"
        class="btn btn-{{ 'primary' if rule_type == 'nids' else 'outline' }} btn-sm">
@@ -165,6 +169,143 @@
       {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+{% elif rule_type == 'detect' %}
+{# ═══════════ PATTERNS DETECT (comportemental) ═══════════ #}
+<div class="two-col" style="grid-template-columns:380px 1fr">
+  <div class="a2">
+    <div class="card">
+      <div class="card-header">
+        <i class="fas fa-bullseye" style="color:var(--red)"></i>
+        <h6>Ajouter un pattern de détection</h6>
+      </div>
+      <div class="card-body">
+        <p style="font-size:12px; color:var(--text-3); margin-bottom:12px">
+          Détecte un seuil d'événements dans une fenêtre temporelle.
+          Ex : <strong>5 failed_login sur ssh_server en 5s</strong> →
+          alerte <code>BRUTE_FORCE_SSH</code>.
+        </p>
+        <form method="POST" action="/ids/policy/detect/add">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+          <div class="f-group">
+            <label class="f-label">Nom du pattern</label>
+            <input type="text" name="pattern_name" class="f-input"
+                   placeholder="BRUTE_FORCE_SSH" required
+                   pattern="[A-Z0-9_]+" style="font-family:monospace; text-transform:uppercase">
+          </div>
+
+          <div class="f-group">
+            <label class="f-label">Ressource ciblée</label>
+            <select name="resource_id" class="f-select" required>
+              <option value="">— Choisir —</option>
+              {% for r in resources %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div class="f-group">
+            <label class="f-label">Tâche surveillée</label>
+            <select name="task" class="f-select" required>
+              <option value="failed_login">failed_login</option>
+              <option value="login">login</option>
+              <option value="execute">execute</option>
+              <option value="read">read</option>
+              <option value="write">write</option>
+              <option value="delete">delete</option>
+              <option value="connect">connect</option>
+              <option value="*">* (toutes les tâches)</option>
+            </select>
+          </div>
+
+          <div style="display:flex; gap:8px">
+            <div class="f-group" style="flex:1">
+              <label class="f-label">Seuil</label>
+              <input type="number" name="threshold" class="f-input"
+                     value="5" min="1" max="1000" required>
+            </div>
+            <div class="f-group" style="flex:1">
+              <label class="f-label">Fenêtre (sec)</label>
+              <input type="number" name="window_sec" class="f-input"
+                     value="5" min="1" max="3600" required>
+            </div>
+          </div>
+
+          <div class="f-group">
+            <label class="f-label">Sévérité</label>
+            <select name="severity" class="f-select" required>
+              <option value="critical">Critical</option>
+              <option value="high" selected>High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full mt-2">
+            <i class="fas fa-plus"></i> Ajouter le pattern
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="a3">
+    <div class="card">
+      <div class="card-header">
+        <h6>Patterns actifs ({{ detect_patterns|selectattr('active')|list|length }} / {{ detect_patterns|length }})</h6>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Nom</th><th>Ressource</th><th>Tâche</th>
+              <th style="text-align:center">Seuil</th>
+              <th style="text-align:center">Fenêtre</th>
+              <th>Sévérité</th><th>Statut</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for p in detect_patterns %}
+            <tr style="{{ 'opacity:.5' if not p.active else '' }}">
+              <td>
+                <code style="font-weight:600; color:var(--red); font-size:13px">
+                  {{ p.pattern_name or '—' }}
+                </code>
+              </td>
+              <td><code>{{ p.resource.name }}</code></td>
+              <td><span class="badge badge-gray">{{ p.task }}</span></td>
+              <td style="text-align:center; font-weight:600">{{ p.threshold }}</td>
+              <td style="text-align:center; color:var(--text-3)">{{ p.window_sec }}s</td>
+              <td>
+                <span class="badge badge-{{ {'critical':'red','high':'orange','medium':'yellow','low':'gray'}.get(p.severity,'gray') }}">
+                  {{ p.severity }}
+                </span>
+              </td>
+              <td>
+                <span class="badge badge-{{ 'ok' if p.active else 'gray' }}">
+                  {{ 'Actif' if p.active else 'Inactif' }}
+                </span>
+              </td>
+              <td>
+                <div class="flex items gap-1">
+                  <a href="/ids/policy/toggle/{{ p.id }}" class="btn btn-outline btn-sm" title="Activer/Désactiver">
+                    <i class="fas fa-power-off"></i>
+                  </a>
+                  <a href="/ids/policy/delete/{{ p.id }}" onclick="return confirm('Supprimer le pattern {{ p.pattern_name }} ?')" class="btn btn-danger btn-sm">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-3)">
+              Aucun pattern de détection. Créez-en un avec le formulaire à gauche.
+            </td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 

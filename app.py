@@ -605,10 +605,15 @@ def ack_all_alerts():
 @app.route('/ids/policy')
 def ids_policy():
     from modules import module3_policy as m3
-    rule_type = request.args.get('type', 'hids')  # hids ou nids
+    rule_type = request.args.get('type', 'hids')  # hids | detect | nids
+    all_policies = AccessPolicy.query.all()
+    # Séparer allow/deny (HIDS classique) des patterns 'detect'
+    hids_policies   = [p for p in all_policies if p.policy_type in ('allow', 'deny')]
+    detect_patterns = [p for p in all_policies if p.policy_type == 'detect']
     return render_template('ids_policy.html',
         rule_type=rule_type,
-        policies=AccessPolicy.query.all(),
+        policies=hids_policies,
+        detect_patterns=detect_patterns,
         nids_rules=NidsRule.query.order_by(NidsRule.id).all(),
         users=IDSUser.query.all(),
         resources=Resource.query.all(),
@@ -687,7 +692,51 @@ def ids_toggle_policy(policy_id):
     p = AccessPolicy.query.get_or_404(policy_id)
     p.active = not p.active
     db.session.commit()
-    return redirect(url_for('ids_policy'))
+    next_type = 'detect' if p.policy_type == 'detect' else 'hids'
+    return redirect(url_for('ids_policy', type=next_type))
+
+
+# ── Patterns de détection comportementale (policy_type='detect') ───────────
+@app.route('/ids/policy/detect/add', methods=['POST'])
+@editor_required
+def ids_add_detect_pattern():
+    """Crée un pattern de détection comportementale.
+    Ex: 5 failed_login sur ssh_server en 5s → alerte BRUTE_FORCE_SSH."""
+    # Récupérer ou créer l'utilisateur virtuel '*'
+    any_user = IDSUser.query.filter_by(username='*').first()
+    if not any_user:
+        any_user = IDSUser(username='*', role='system')
+        db.session.add(any_user)
+        db.session.commit()
+
+    try:
+        threshold  = int(request.form.get('threshold', 5))
+        window_sec = int(request.form.get('window_sec', 5))
+    except ValueError:
+        flash('Seuil et fenêtre doivent être des entiers.', 'danger')
+        return redirect(url_for('ids_policy', type='detect'))
+
+    pattern_name = request.form.get('pattern_name', '').strip().upper()
+    if not pattern_name:
+        flash('Le nom du pattern est requis.', 'danger')
+        return redirect(url_for('ids_policy', type='detect'))
+
+    db.session.add(AccessPolicy(
+        user_id      = any_user.id,
+        resource_id  = int(request.form['resource_id']),
+        task         = request.form['task'],
+        policy_type  = 'detect',
+        start_date   = datetime(2026, 1, 1),
+        end_date     = datetime(2099, 12, 31),
+        active       = True,
+        threshold    = threshold,
+        window_sec   = window_sec,
+        severity     = request.form.get('severity', 'high'),
+        pattern_name = pattern_name,
+    ))
+    db.session.commit()
+    flash(f"Pattern de détection '{pattern_name}' ajouté.", 'success')
+    return redirect(url_for('ids_policy', type='detect'))
 
 @app.route('/ids/policy/delete/<int:policy_id>')
 @editor_required
@@ -1293,6 +1342,45 @@ def _seed():
                                         task=t, start_date=s, end_date=e))
         db.session.commit()
 
+    # ── Patterns 'detect' : seed initial si aucun n'existe ─────────────────
+    if AccessPolicy.query.filter_by(policy_type='detect').count() == 0:
+        # Pour les patterns, on a besoin d'un user 'virtuel' qui représente
+        # "tout utilisateur" (wildcard). On crée *_ANY si absent.
+        any_user = IDSUser.query.filter_by(username='*').first()
+        if not any_user:
+            any_user = IDSUser(username='*', role='system')
+            db.session.add(any_user)
+            db.session.commit()
+
+        y0, y1 = datetime(2026,1,1), datetime(2099,12,31)
+        ssh  = Resource.query.filter_by(name='ssh_server').first()
+        web  = Resource.query.filter_by(name='web_server').first()
+        db_r = Resource.query.filter_by(name='database').first()
+        sysr = Resource.query.filter_by(name='system').first()
+        fs   = Resource.query.filter_by(name='file_storage').first()
+
+        # (resource, task, threshold, window_sec, severity, pattern_name)
+        patterns_seed = [
+            (ssh,  'failed_login', 5, 5,   'critical', 'BRUTE_FORCE_SSH'),
+            (web,  'failed_login', 5, 30,  'high',     'BRUTE_FORCE_WEB'),
+            (db_r, 'failed_login', 3, 10,  'critical', 'BRUTE_FORCE_DB'),
+            (sysr, 'execute',      20,60,  'high',     'EXEC_FLOOD'),
+            (sysr, 'execute',      5, 10,  'critical', 'PRIVESC_ATTEMPT'),
+            (fs,   'read',         50,30,  'high',     'FILE_READ_FLOOD'),
+            (fs,   'delete',       10,30,  'critical', 'FILE_DELETE_FLOOD'),
+        ]
+        for res, task, thr, win, sev, name in patterns_seed:
+            if not res:
+                continue
+            db.session.add(AccessPolicy(
+                user_id=any_user.id, resource_id=res.id,
+                task=task, policy_type='detect',
+                start_date=y0, end_date=y1, active=True,
+                threshold=thr, window_sec=win,
+                severity=sev, pattern_name=name,
+            ))
+        db.session.commit()
+
 
 # Ajouter la méthode helper au module3_policy pour éviter l'import circulaire
 def _load_policy_direct_helper(flask_app):
@@ -1322,6 +1410,19 @@ def _migrate_schema():
                 conn.execute(text('ALTER TABLE web_user ADD COLUMN totp_secret VARCHAR(64)'))
             if 'totp_enabled' not in cols:
                 conn.execute(text('ALTER TABLE web_user ADD COLUMN totp_enabled BOOLEAN DEFAULT 0'))
+
+    # access_policy : threshold, window_sec, severity, pattern_name (pour policy_type='detect')
+    if inspector.has_table('access_policy'):
+        cols = {c['name'] for c in inspector.get_columns('access_policy')}
+        with db.engine.begin() as conn:
+            if 'threshold' not in cols:
+                conn.execute(text('ALTER TABLE access_policy ADD COLUMN threshold INTEGER'))
+            if 'window_sec' not in cols:
+                conn.execute(text('ALTER TABLE access_policy ADD COLUMN window_sec INTEGER'))
+            if 'severity' not in cols:
+                conn.execute(text('ALTER TABLE access_policy ADD COLUMN severity VARCHAR(20)'))
+            if 'pattern_name' not in cols:
+                conn.execute(text('ALTER TABLE access_policy ADD COLUMN pattern_name VARCHAR(80)'))
 
 
 with app.app_context():
