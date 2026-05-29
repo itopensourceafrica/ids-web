@@ -9992,3 +9992,423 @@ INTRUSION DÉTECTÉE
   Type        : user_unknown
   Ligne brute : SCAN DE PORTS: 8.8.8.8 → 35 ports en 60s
 ═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:41:02 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : network_scanner
+  Tâche       : network_access
+  Date accès  : 2026-05-29 13:40:59
+  Source      : nids/rule_1
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '192.168.99.21' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : ALERTE (règle #1 'ssh'): 192.168.99.21:43248 → 140.82.121.4:22 (TCP)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 13:41:02 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : ssh_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:40:59
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 192.168.99.21 sur ssh_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SSH détectée: 192.168.99.21:22 → 140.82.121.4
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:41:56 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 8.8.8.8
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:41:55
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '8.8.8.8' absent de la politique de sécurité | 📍 Ashburn, United States | (Google Public DNS)
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 8.8.8.8 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 13:42:00 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:41:57
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 192.168.99.21 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 192.168.99.21:587 → 212.227.24.204
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[MOYENNE] 2026-05-29 13:42:03 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 160.79.104.10
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:38:02
+  Source      : anomaly_detection
+───────────────────────────────────────────────────────
+  Violation   : [ANOMALY] 160.79.104.10 — port_scan sur network_scanner : heure inhabituelle (z-score=3.09, h=13) | 📍 San Francisco, United States | (Anthropic, PBC)
+  Type        : behavior_anomaly
+  Ligne brute : [ANOMALY] 160.79.104.10 — port_scan sur network_scanner : heure inhabituelle (z-score=3.09, h=13)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[MOYENNE] 2026-05-29 13:42:03 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-29 12:40:35
+  Source      : anomaly_detection
+───────────────────────────────────────────────────────
+  Violation   : [ANOMALY] roberto — execute sur system : heure inhabituelle (z-score=4.26, h=12)
+  Type        : behavior_anomaly
+  Ligne brute : [ANOMALY] roberto — execute sur system : heure inhabituelle (z-score=4.26, h=12)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:45:52 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 8.8.8.8
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:45:52
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '8.8.8.8' absent de la politique de sécurité | 📍 Ashburn, United States | (Google Public DNS)
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 8.8.8.8 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 13:45:55 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:45:53
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 192.168.99.21 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 192.168.99.21:587 → 212.227.24.202
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:47:15 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-29 12:47:13
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 13:47:18 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:47:15
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 192.168.99.21 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 192.168.99.21:587 → 212.227.24.206
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:47:24 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-29 13:47:23
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1780058843.139:18177): pid=196534 uid=1000 auid=1000 ses=3 subj=unconfined 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:47:24 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-29 12:47:23
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:47:48 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : SYSTEM
+  Ressource   : file_system
+  Tâche       : write
+  Date accès  : 2026-05-29 13:47:47
+  Source      : file_integrity
+───────────────────────────────────────────────────────
+  Violation   : MODIFICATION: /etc/hosts (SHA256 changé)
+  Type        : file_integrity
+  Ligne brute : MODIFICATION: /etc/hosts (SHA256 changé)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[MOYENNE] 2026-05-29 13:48:18 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 8.8.8.8
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:00:38
+  Source      : anomaly_detection
+───────────────────────────────────────────────────────
+  Violation   : [ANOMALY] 8.8.8.8 — port_scan sur network_scanner : heure inhabituelle (z-score=3.72, h=13) | 📍 Ashburn, United States | (Google Public DNS)
+  Type        : behavior_anomaly
+  Ligne brute : [ANOMALY] 8.8.8.8 — port_scan sur network_scanner : heure inhabituelle (z-score=3.72, h=13)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[MOYENNE] 2026-05-29 13:48:18 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : file_storage
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:31:08
+  Source      : anomaly_detection
+───────────────────────────────────────────────────────
+  Violation   : [ANOMALY] 192.168.99.21 — connect sur file_storage : ressource inhabituelle (file_storage)
+  Type        : behavior_anomaly
+  Ligne brute : [ANOMALY] 192.168.99.21 — connect sur file_storage : ressource inhabituelle (file_storage)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[MOYENNE] 2026-05-29 13:48:18 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 160.79.104.10
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:38:02
+  Source      : anomaly_detection
+───────────────────────────────────────────────────────
+  Violation   : [ANOMALY] 160.79.104.10 — port_scan sur network_scanner : heure inhabituelle (z-score=3.12, h=13) | 📍 San Francisco, United States | (Anthropic, PBC)
+  Type        : behavior_anomaly
+  Ligne brute : [ANOMALY] 160.79.104.10 — port_scan sur network_scanner : heure inhabituelle (z-score=3.12, h=13)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[MOYENNE] 2026-05-29 13:48:18 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-29 12:40:35
+  Source      : anomaly_detection
+───────────────────────────────────────────────────────
+  Violation   : [ANOMALY] roberto — execute sur system : heure inhabituelle (z-score=4.28, h=12)
+  Type        : behavior_anomaly
+  Ligne brute : [ANOMALY] roberto — execute sur system : heure inhabituelle (z-score=4.28, h=12)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:48:21 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 8.8.8.8
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:48:19
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '8.8.8.8' absent de la politique de sécurité | 📍 Ashburn, United States | (Google Public DNS)
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 8.8.8.8 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 13:48:21 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:48:19
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 192.168.99.21 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 192.168.99.21:587 → 212.227.24.208
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:50:15 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 8.8.8.8
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:50:13
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '8.8.8.8' absent de la politique de sécurité | 📍 Ashburn, United States | (Google Public DNS)
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 8.8.8.8 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 13:50:19 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:50:16
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 192.168.99.21 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 192.168.99.21:587 → 212.227.24.200
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:52:58 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 8.8.8.8
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:52:56
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '8.8.8.8' absent de la politique de sécurité | 📍 Ashburn, United States | (Google Public DNS)
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 8.8.8.8 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 13:53:01 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 192.168.99.21
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 13:52:58
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 192.168.99.21 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 192.168.99.21:587 → 212.227.24.206
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:53:04 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 8.8.8.8
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 13:53:04
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '8.8.8.8' absent de la politique de sécurité | 📍 Ashburn, United States | (Google Public DNS)
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 8.8.8.8 → 25 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:53:37 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-29 12:53:36
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:53:38 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-29 12:53:37
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:53:41 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : execute
+  Date accès  : 2026-05-29 12:53:38
+  Source      : auditd/sudo
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'execute' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : SUDO: roberto → 
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 13:53:50 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : SYSTEM
+  Ressource   : file_system
+  Tâche       : write
+  Date accès  : 2026-05-29 13:53:48
+  Source      : file_integrity
+───────────────────────────────────────────────────────
+  Violation   : MODIFICATION: /etc/hosts (SHA256 changé)
+  Type        : file_integrity
+  Ligne brute : MODIFICATION: /etc/hosts (SHA256 changé)
+═══════════════════════════════════════════════════════

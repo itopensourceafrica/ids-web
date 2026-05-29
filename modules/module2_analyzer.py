@@ -163,6 +163,18 @@ def _check_event(event: dict, policies: list) -> dict | None:
     except Exception:
         exec_date = datetime.now()
 
+    source = event.get('source', '')
+
+    # Intégrité fichiers & persistance : un changement sur un fichier système
+    # critique (ou un nouveau fichier de persistance) est TOUJOURS une alerte,
+    # quel que soit l'utilisateur — même 'SYSTEM'. C'est le cœur du HIDS FIM.
+    if source in ('file_integrity', 'linux/persistence'):
+        return {
+            'type':    'file_integrity',
+            'message': event.get('raw') or f"Modification détectée sur {resource}",
+            'severity': 'critical',
+        }
+
     # Exclure les comptes système sans contrôle d'accès
     system_accounts = {'SYSTEM', 'LOCAL SERVICE', 'NETWORK SERVICE',
                        'daemon', 'nobody', 'www-data', '_apt', 'gdm'}
@@ -178,7 +190,6 @@ def _check_event(event: dict, policies: list) -> dict | None:
 
     # Les événements réseau ont une IP comme username (source network/*)
     # Ils bypassent la politique utilisateur et sont toujours des alertes
-    source = event.get('source', '')
     if source.startswith('network/') and source != 'network/port_scan':
         import re as _re
         if _re.match(r'^\d{1,3}(\.\d{1,3}){3}$', username):
