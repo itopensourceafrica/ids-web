@@ -188,7 +188,7 @@ class CorrelationDaemon(threading.Thread):
         """Scan toutes les intrusions récentes pour patterns."""
         with self.app.app_context():
             from models import Intrusion
-            cutoff = datetime.utcnow() - timedelta(seconds=KILL_CHAIN_WINDOW)
+            cutoff = datetime.now() - timedelta(seconds=KILL_CHAIN_WINDOW)
             intrusions = Intrusion.query.filter(
                 Intrusion.detected_at >= cutoff
             ).all()
@@ -211,7 +211,7 @@ class CorrelationDaemon(threading.Thread):
             try:
                 time.sleep(SCAN_INTERVAL)
                 detected = self._scan()
-                status['last_scan'] = datetime.utcnow().strftime('%H:%M:%S')
+                status['last_scan'] = datetime.now().strftime('%H:%M:%S')
 
                 for pattern in detected:
                     # Déduplication : ne pas re-alerter sur le même pattern/acteur en < 30 min
@@ -233,7 +233,7 @@ class CorrelationDaemon(threading.Thread):
                             'resource': 'system',
                             'task':     'kill_chain',
                             'source':   'correlation',
-                            'execution_date': datetime.utcnow().isoformat(),
+                            'execution_date': datetime.now().isoformat(),
                             'raw':      chain_msg[:500],
                         },
                         'violation': {
@@ -243,7 +243,7 @@ class CorrelationDaemon(threading.Thread):
                                         f'{len(pattern["events"])} stages détectées',
                             'severity': pattern['severity'],
                         },
-                        'detected_at': datetime.utcnow().isoformat(),
+                        'detected_at': datetime.now().isoformat(),
                     })
                     status['patterns_detected'] += 1
 

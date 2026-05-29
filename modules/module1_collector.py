@@ -149,7 +149,7 @@ def write_event(username: str, resource: str, task: str,
     """Écrit un événement dans events/YYYY-MM-DD.jsonl"""
     event = {
         'id':             str(uuid.uuid4()),
-        'ts':             datetime.utcnow().isoformat(),
+        'ts':             datetime.now().isoformat(),
         'source':         source,
         'username':       username,
         'resource':       resource,
@@ -157,7 +157,7 @@ def write_event(username: str, resource: str, task: str,
         'execution_date': execution_date.isoformat(),
         'raw':            raw[:300],
     }
-    day_file = os.path.join(EVENTS_DIR, datetime.utcnow().strftime('%Y-%m-%d') + '.jsonl')
+    day_file = os.path.join(EVENTS_DIR, datetime.now().strftime('%Y-%m-%d') + '.jsonl')
     with _write_lock:
         with open(day_file, 'a', encoding='utf-8') as f:
             f.write(json.dumps(event) + '\n')
@@ -178,7 +178,7 @@ def _parse_date(s: str) -> datetime:
             return datetime.strptime(f'{year} {s.strip()}', fmt)
         except ValueError:
             continue
-    return datetime.utcnow()
+    return datetime.now()
 
 
 def _parse_auth_line(line: str) -> dict | None:
@@ -232,7 +232,7 @@ def _parse_audit_line(line: str) -> dict | None:
         res_m  = re.search(r'res=(\S+)', line)
         ts_m   = re.search(r'msg=audit\((\d+)', line)
         if user_m:
-            ts = datetime.fromtimestamp(float(ts_m.group(1))) if ts_m else datetime.utcnow()
+            ts = datetime.fromtimestamp(float(ts_m.group(1))) if ts_m else datetime.now()
             task = 'login' if (res_m and 'success' in res_m.group(1)) else 'failed_login'
             # Détecter la ressource source (ssh / console / autre)
             if 'sshd' in line or 'terminal=ssh' in line:
@@ -249,7 +249,7 @@ def _parse_audit_line(line: str) -> dict | None:
         cmd_m  = re.search(r'a0="([^"]+)"', line)
         ts_m   = re.search(r'msg=audit\((\d+)', line)
         if user_m and cmd_m:
-            ts = datetime.fromtimestamp(float(ts_m.group(1))) if ts_m else datetime.utcnow()
+            ts = datetime.fromtimestamp(float(ts_m.group(1))) if ts_m else datetime.now()
             try:
                 import pwd
                 username = pwd.getpwuid(int(user_m.group(1))).pw_name
@@ -290,7 +290,7 @@ class LinuxLogCollector(threading.Thread):
 
         logwatcher_status['active']     = True
         logwatcher_status['log_file']   = self._log_file
-        logwatcher_status['started_at'] = datetime.utcnow()
+        logwatcher_status['started_at'] = datetime.now()
 
         self._log_pos = os.path.getsize(self._log_file)
         if os.path.exists('/var/log/audit/audit.log'):
@@ -361,7 +361,7 @@ class WindowsLogCollector(threading.Thread):
             4625: ('failed_login', 'system'),
             4672: ('admin',        'system'),
             4688: ('execute',      'system'),
-            4663: ('read',         'file_storage'),
+            4663: ('read',         'file_system'),
             4720: ('write',        'user_management'),
             4732: ('write',        'user_management'),
         },
@@ -417,7 +417,7 @@ class WindowsLogCollector(threading.Thread):
                 event_id = int(system.find(f'{{{ns}}}EventID').text)
                 record_id = int(system.find(f'{{{ns}}}EventRecordID').text)
                 ts_str = system.find(f'{{{ns}}}TimeCreated').attrib.get('SystemTime', '')
-                ts = datetime.fromisoformat(ts_str.replace('Z', '')) if ts_str else datetime.utcnow()
+                ts = datetime.fromisoformat(ts_str.replace('Z', '')) if ts_str else datetime.now()
 
                 # Extraire le nom d'utilisateur depuis EventData
                 username = 'SYSTEM'
@@ -586,7 +586,7 @@ class SysmonCollector(threading.Thread):
                 try:
                     ts = datetime.fromisoformat(ts_str.replace('Z', '')[:26])
                 except Exception:
-                    ts = datetime.utcnow()
+                    ts = datetime.now()
 
                 if event_id not in self.EVENT_MAP:
                     continue
@@ -820,7 +820,7 @@ def _port_to_resource(port_str: str) -> str:
         '22': 'ssh_server', '23': 'telnet_server', '21': 'ftp_server',
         '3306': 'database', '5432': 'database', '1433': 'database',
         '27017': 'database', '6379': 'database',
-        '445': 'file_storage', '139': 'file_storage',
+        '445': 'file_system', '139': 'file_system',
         '3389': 'rdp_server', '25': 'email_server', '587': 'email_server',
     }
     return mapping.get(port_str, 'network_scanner')
@@ -882,9 +882,9 @@ alert;tcp;9200;-;high;Elasticsearch exposé;database
 alert;tcp;5984;-;medium;CouchDB exposé;database
 
 # ── PARTAGE DE FICHIERS ───────────────────────────────────────────────────────
-alert;tcp;445;-;high;SMB — partage Windows (EternalBlue);file_storage
-alert;tcp;139;-;medium;NetBIOS;file_storage
-alert;tcp;2049;-;medium;NFS exposé sur le réseau;file_storage
+alert;tcp;445;-;high;SMB — partage Windows (EternalBlue);file_system
+alert;tcp;139;-;medium;NetBIOS;file_system
+alert;tcp;2049;-;medium;NFS exposé sur le réseau;file_system
 
 # ── PORTS C2 ET REVERSE SHELLS ───────────────────────────────────────────────
 alert;tcp;4444;-;critical;Port Metasploit par défaut;network_scanner
@@ -1175,7 +1175,7 @@ def _apply_rules(src: str, dst: str, port: int, proto: str,
     if scan_hit:
         write_event(
             username=src, resource='network_scanner', task='port_scan',
-            execution_date=datetime.utcnow(), source='network/port_scan',
+            execution_date=datetime.now(), source='network/port_scan',
             raw=f'SCAN DE PORTS: {src} → {n_ports} ports en {PORT_SCAN_WINDOW}s'
         )
 
@@ -1192,7 +1192,7 @@ def _apply_rules(src: str, dst: str, port: int, proto: str,
                any(k in sni for k in _suspicious_kw):
                 write_event(
                     username=src, resource='network_scanner', task='connect',
-                    execution_date=datetime.utcnow(), source='network/tls_sni',
+                    execution_date=datetime.now(), source='network/tls_sni',
                     raw=f'TLS SNI SUSPECT: {src} → {sni}'
                 )
 
@@ -1214,7 +1214,7 @@ def _apply_rules(src: str, dst: str, port: int, proto: str,
             username=src,
             resource=rule['resource'],
             task='connect',
-            execution_date=datetime.utcnow(),
+            execution_date=datetime.now(),
             source=f'network/{proto}',
             raw=f"{rule['msg']}: {src}:{port} → {dst}{extra}"
         )
@@ -1245,7 +1245,7 @@ def _apply_rules(src: str, dst: str, port: int, proto: str,
             username=src,
             resource=rule['resource'],
             task='execute',
-            execution_date=datetime.utcnow(),
+            execution_date=datetime.now(),
             source='network/signature',
             raw=f"{rule['msg']}: {src} → {dst}:{port} | payload: {payload_str[:120]}"
         )
@@ -1482,7 +1482,7 @@ class NetworkCapture(threading.Thread):
                     write_event(
                         username=src, resource='network_scanner',
                         task='network_access',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='nids/ja3',
                         raw=f'[JA3 MATCH] Fingerprint {malware_name} détecté: '
                             f'src={src} dst={dst} ja3={ja3}'
@@ -1499,7 +1499,7 @@ class NetworkCapture(threading.Thread):
                         write_event(
                             username=src, resource='network_scanner',
                             task='network_access',
-                            execution_date=datetime.utcnow(),
+                            execution_date=datetime.now(),
                             source='nids/dns_tunnel',
                             raw=f'[DNS TUNNEL] {src} → {qname[:80]} ({reason})'
                         )
@@ -1538,7 +1538,7 @@ class NetworkCapture(threading.Thread):
                 username=src,
                 resource='network_scanner',
                 task='network_access',
-                execution_date=datetime.utcnow(),
+                execution_date=datetime.now(),
                 source=f'nids/rule_{rule["id"]}',
                 raw=raw_msg
             )
@@ -1645,7 +1645,7 @@ class NetworkCapture(threading.Thread):
         sniffer_status['interface'] = ','.join(all_ifaces)
         sniffer_status['active']     = True
         sniffer_status['error']      = None
-        sniffer_status['started_at'] = datetime.utcnow()
+        sniffer_status['started_at'] = datetime.now()
         status['sources'].append('Réseau NIDS (scapy)')
 
         print(f'[MODULE 1] NIDS: interfaces détectées = {all_ifaces}', file=sys.stderr)
@@ -1708,9 +1708,9 @@ class FileIntegrityMonitor(threading.Thread):
                     self._baseline[path] = current
                     write_event(
                         username='SYSTEM',
-                        resource='file_storage',
+                        resource='file_system',
                         task='write',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='file_integrity',
                         raw=f'MODIFICATION: {path} (SHA256 changé)'
                     )
@@ -1845,7 +1845,7 @@ class ProcessMonitor(threading.Thread):
                                     username=user,
                                     resource='system',
                                     task='execute',
-                                    execution_date=datetime.utcnow(),
+                                    execution_date=datetime.now(),
                                     source='process_monitor',
                                     raw=f'PROCESSUS SUSPECT: {name} (pid={pid}) cmd={cmd[:100]}'
                                 )
@@ -2002,7 +2002,7 @@ class LinuxPersistenceMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='file_system',
                         task='write',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='linux/persistence',
                         raw=f'[PERSISTENCE] Nouveau fichier dans {path}: {name}'
                     )
@@ -2015,7 +2015,7 @@ class LinuxPersistenceMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='file_system',
                         task='write',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='linux/persistence',
                         raw=f'[MODIFICATION] Fichier modifié dans {path}: {name}'
                     )
@@ -2027,7 +2027,7 @@ class LinuxPersistenceMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='file_system',
                         task='delete',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='linux/persistence',
                         raw=f'[SUPPRESSION] Fichier supprimé dans {path}: {name}'
                     )
@@ -2147,7 +2147,7 @@ class SUIDMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='file_system',
                         task='write',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='linux/suid',
                         raw=f'[NEW SUID] {path}{severity_marker}'
                     )
@@ -2159,7 +2159,7 @@ class SUIDMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='file_system',
                         task='delete',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='linux/suid',
                         raw=f'[SUID REMOVED] {path}'
                     )
@@ -2243,7 +2243,7 @@ class WindowsRegistryMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='registry',
                         task='write',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='windows/registry',
                         raw=f'[PERSISTENCE] Nouvelle valeur dans {hive}\\{key} ({label}): '
                             f'{name} = {val[:120]}'
@@ -2253,7 +2253,7 @@ class WindowsRegistryMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='registry',
                         task='write',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='windows/registry',
                         raw=f'[MODIFICATION] Valeur changée {hive}\\{key} ({label}): '
                             f'{name} = {val[:120]} (était {baseline[name][:60]})'
@@ -2266,7 +2266,7 @@ class WindowsRegistryMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='registry',
                         task='delete',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='windows/registry',
                         raw=f'[SUPPRESSION] Valeur supprimée {hive}\\{key} ({label}): {name}'
                     )
@@ -2409,7 +2409,7 @@ class WindowsServiceMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='system',
                         task='admin',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='windows/service',
                         raw=raw,
                     )
@@ -2421,7 +2421,7 @@ class WindowsServiceMonitor(threading.Thread):
                         username='SYSTEM',
                         resource='system',
                         task='delete',
-                        execution_date=datetime.utcnow(),
+                        execution_date=datetime.now(),
                         source='windows/service',
                         raw=f'Service supprimé : {name}',
                     )
@@ -2473,7 +2473,7 @@ class AuditdCollector(threading.Thread):
         # Commencer à la fin du fichier (ne pas rejouer l'historique)
         self._pos = os.path.getsize(AUDIT_LOG)
         auditd_status['active']     = True
-        auditd_status['started_at'] = datetime.utcnow()
+        auditd_status['started_at'] = datetime.now()
         status['sources'].append(f'auditd ({AUDIT_LOG})')
 
         while True:
@@ -2509,7 +2509,7 @@ class AuditdCollector(threading.Thread):
         try:
             exec_date = datetime.utcfromtimestamp(float(ts_str))
         except Exception:
-            exec_date = datetime.utcnow()
+            exec_date = datetime.now()
 
         fields = _parse_audit_fields(body)
         auditd_status['events_parsed'] += 1
@@ -2599,7 +2599,7 @@ class AuditdCollector(threading.Thread):
             name = fields.get('name', '').strip('"')
             nametype = fields.get('nametype', '')
             if key.startswith('ids_') and nametype in ('NORMAL', 'CREATE', 'DELETE'):
-                write_event(username=username, resource='file_storage', task='write',
+                write_event(username=username, resource='file_system', task='write',
                             execution_date=exec_date, source='auditd/file',
                             raw=f'FICHIER CRITIQUE: {name} (key={key})')
 
@@ -2617,7 +2617,7 @@ def start(app=None):
     os.makedirs(EVENTS_DIR, exist_ok=True)
 
     status['running']    = True
-    status['started_at'] = datetime.utcnow().isoformat()
+    status['started_at'] = datetime.now().isoformat()
     status['sources']    = []
     status['errors']     = []
 

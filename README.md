@@ -13,6 +13,7 @@ Plateforme de détection d'intrusions modulaire, développée en Python/Flask. E
 - [Les 5 modules](#les-5-modules)
 - [Sources de données](#sources-de-données)
 - [Éléments surveillés — Liste complète](#éléments-surveillés--liste-complète)
+- [Ressources & modèle d'accès](#ressources--modèle-daccès)
 - [Sécurité & authentification web](#sécurité--authentification-web)
 - [Notifications externes](#notifications-externes)
 - [Logique de détection](#logique-de-détection)
@@ -625,6 +626,58 @@ Exemple : `min_severity=high` → seules les alertes high et critical déclenche
 ```
 
 La configuration est rechargée automatiquement toutes les 60 secondes (pas besoin de redémarrer).
+
+---
+
+## Ressources & modèle d'accès
+
+Une **ressource** est un actif/objet protégé que l'IDS surveille. C'est le « **sur QUOI** » dans le modèle de sécurité.
+
+Chaque événement est représenté par un triplet :
+
+> **QUI** (`username`) fait **QUOI** (`task`) sur **QUELLE RESSOURCE** (`resource`)
+
+Exemple : `roberto` — `failed_login` — sur `ssh_server`.
+
+La ressource sert à trois choses :
+
+1. **Étiqueter les événements** — le collecteur (Module 1) associe une ressource à chaque activité détectée.
+2. **Écrire les politiques** — chaque règle `allow`/`deny`/`detect` est définie *par ressource* (ex. « 5 `failed_login` sur `ssh_server` en 5 s = brute force »).
+3. **Relier** ce qui se passe (événement) à ce qui est autorisé (policy).
+
+### Liste canonique des ressources
+
+> ⚠️ **Important** : ces noms doivent correspondre **exactement** entre le collecteur (`module1_collector.py`) et la table `resource` (seed dans `app.py`). Un nom divergent fait qu'un événement ne matche **aucune** policy ni pattern. Le collecteur est la source de vérité.
+
+| Ressource | Représente |
+|---|---|
+| `system` | Le système d'exploitation (exécution de commandes) |
+| `ssh_server` | Accès SSH |
+| `web_server` | Serveur web |
+| `database` | Base de données |
+| `file_system` | Système de fichiers (lecture/écriture/suppression) |
+| `user_management` | Gestion des comptes utilisateurs |
+| `network_scanner` | Activité réseau / scan de ports |
+| `email_server` | Serveur de messagerie |
+| `firewall` | Pare-feu |
+| `registry` | Registre Windows (HIDS Windows) |
+
+### Mapping commande → ressource
+
+Pour les événements système (auditd / Sysmon), la fonction `_cmd_to_resource()` déduit la ressource à partir de la commande exécutée :
+
+| Commande détectée | Ressource |
+|---|---|
+| `mysql`, `psql`, `sqlite3`, `mongod`, `redis-cli` | `database` |
+| `nginx`, `apache2`, `httpd`, `flask` | `web_server` |
+| `sendmail`, `postfix`, `dovecot`, `mail` | `email_server` |
+| `useradd`, `usermod`, `passwd`, `chpasswd` | `user_management` |
+| `iptables`, `ufw`, `firewall` | `firewall` |
+| (tout le reste) | `system` |
+
+> 🛠️ **Note de cohérence** : auparavant le collecteur émettait deux noms pour le même concept de fichiers (`file_storage` **et** `file_system`), et le seed créait des ressources (`file_storage`) absentes des événements. Tout est désormais unifié sur `file_system`, ce qui débloque les patterns `FILE_READ_FLOOD` / `FILE_DELETE_FLOOD` et `EXEC_FLOOD` / `PRIVESC_ATTEMPT` (ressource `system`).
+
+Les ressources se gèrent dans l'interface web via **IDS → Ressources**.
 
 ---
 

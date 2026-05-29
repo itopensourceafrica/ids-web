@@ -55,9 +55,9 @@ def _purge_db(app):
     with app.app_context():
         from models import db, Alert, Intrusion, EventEntry, AuditLog
 
-        alert_cutoff = datetime.utcnow() - timedelta(days=ALERT_RETENTION_DAYS)
-        event_cutoff = datetime.utcnow() - timedelta(days=EVENT_RETENTION_DAYS)
-        audit_cutoff = datetime.utcnow() - timedelta(days=AUDIT_RETENTION_DAYS)
+        alert_cutoff = datetime.now() - timedelta(days=ALERT_RETENTION_DAYS)
+        event_cutoff = datetime.now() - timedelta(days=EVENT_RETENTION_DAYS)
+        audit_cutoff = datetime.now() - timedelta(days=AUDIT_RETENTION_DAYS)
 
         # Alertes anciennes acquittées
         n_alerts = Alert.query.filter(
@@ -112,7 +112,7 @@ def _compress_old_files(directory):
             continue  # trop récent
 
         # Ne pas compresser le fichier du jour
-        today_name = datetime.utcnow().strftime('%Y-%m-%d')
+        today_name = datetime.now().strftime('%Y-%m-%d')
         if today_name in name:
             continue
 
@@ -174,7 +174,7 @@ class MaintenanceDaemon(threading.Thread):
 
                 status['files_compressed'] += c1 + c2
                 status['files_deleted']    += d1 + d2
-                status['last_run']         = datetime.utcnow().strftime('%H:%M:%S')
+                status['last_run']         = datetime.now().strftime('%H:%M:%S')
 
                 if (c1 + c2 + d1 + d2) > 0:
                     print(f'[MODULE 5] Fichiers: compressés={c1 + c2}, supprimés={d1 + d2}',

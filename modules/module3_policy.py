@@ -192,7 +192,7 @@ def import_from_file(app, path: str = None, replace: bool = True) -> dict:
         db.session.commit()
 
     status['rules_loaded'] = result['created']
-    status['last_reload']  = datetime.utcnow().strftime('%H:%M:%S')
+    status['last_reload']  = datetime.now().strftime('%H:%M:%S')
     return result
 
 
@@ -267,7 +267,7 @@ class PolicyWatcher(threading.Thread):
                     n = result['created']
                     print(f'[MODULE 3] Politique rechargée: {n} règles', file=sys.stderr)
                     status['rules_loaded'] = n
-                    status['last_reload']  = datetime.utcnow().strftime('%H:%M:%S')
+                    status['last_reload']  = datetime.now().strftime('%H:%M:%S')
             except Exception as e:
                 status['errors'].append(f'PolicyWatcher: {e}')
 

@@ -146,7 +146,7 @@ def health():
             'active': m1.sniffer_status.get('active', False),
             'packets_captured': m1.sniffer_status.get('packets_captured', 0),
         },
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'timestamp': datetime.now().isoformat() + 'Z',
     }
     return Response(json.dumps(payload), status=200 if healthy else 503,
                     mimetype='application/json')
@@ -278,7 +278,7 @@ def login():
 
             # Succès
             login_user(user)
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now()
             record_attempt(ip, username, success=True, user_agent=ua)
             reset_attempts(ip)
             db.session.commit()
@@ -524,7 +524,7 @@ def _alerts_query(args):
     days = args.get('days')
     if days:
         try:
-            cutoff = datetime.utcnow() - timedelta(days=int(days))
+            cutoff = datetime.now() - timedelta(days=int(days))
             q = q.filter(Alert.timestamp >= cutoff)
         except ValueError:
             pass
@@ -576,7 +576,7 @@ def alerts_export_csv():
         output.getvalue(),
         mimetype='text/csv',
         headers={
-            'Content-Disposition': f'attachment; filename=alerts_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+            'Content-Disposition': f'attachment; filename=alerts_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         }
     )
 
@@ -1078,7 +1078,7 @@ def _intrusions_query(args):
     days = args.get('days')
     if days:
         try:
-            cutoff = datetime.utcnow() - timedelta(days=int(days))
+            cutoff = datetime.now() - timedelta(days=int(days))
             q = q.filter(Intrusion.detected_at >= cutoff)
         except ValueError:
             pass
@@ -1125,7 +1125,7 @@ def ids_intrusions_export_csv():
 
     return Response(output.getvalue(), mimetype='text/csv',
         headers={'Content-Disposition':
-            f'attachment; filename=intrusions_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'})
+            f'attachment; filename=intrusions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'})
 
 @app.route('/ids/intrusions/partial')
 def ids_intrusions_partial():
@@ -1202,7 +1202,7 @@ def stream_stats():
                     'sniffer_packets':  m1.sniffer_status['packets_captured'],
                     'log_lines':        m1.logwatcher_status['lines_processed'],
                     'log_entries':      m1.logwatcher_status['entries_created'],
-                    'ts':               datetime.utcnow().strftime('%H:%M:%S'),
+                    'ts':               datetime.now().strftime('%H:%M:%S'),
                 }
                 yield f'data: {json.dumps(data)}\n\n'
             except Exception as e:
@@ -1301,15 +1301,20 @@ def _seed():
         db.session.commit()
 
     if Resource.query.count() == 0:
+        # ⚠️ Ces noms DOIVENT correspondre exactement aux ressources émises par
+        # le collecteur (module1_collector). Sinon les events ne matchent aucune
+        # policy/pattern. Liste canonique = ce que module1 écrit dans les events.
         for name, desc in [
-            ('database',      'Base de données principale'),
-            ('web_server',    'Serveur web'),
-            ('file_storage',  'Stockage de fichiers'),
-            ('email_server',  'Serveur de messagerie'),
-            ('ssh_server',    'Accès SSH'),
-            ('system',        'Système d\'exploitation'),
+            ('system',         'Système d\'exploitation'),
+            ('ssh_server',     'Accès SSH'),
+            ('web_server',     'Serveur web'),
+            ('database',       'Base de données principale'),
+            ('file_system',    'Système de fichiers'),
             ('user_management','Gestion utilisateurs'),
-            ('firewall',      'Pare-feu'),
+            ('network_scanner','Activité réseau / scan de ports'),
+            ('email_server',   'Serveur de messagerie'),
+            ('firewall',       'Pare-feu'),
+            ('registry',       'Registre Windows'),
         ]:
             db.session.add(Resource(name=name, description=desc))
         db.session.commit()
@@ -1320,7 +1325,7 @@ def _seed():
         charlie = IDSUser.query.filter_by(username='charlie').first()
         db_res  = Resource.query.filter_by(name='database').first()
         web     = Resource.query.filter_by(name='web_server').first()
-        storage = Resource.query.filter_by(name='file_storage').first()
+        storage = Resource.query.filter_by(name='file_system').first()
         ssh     = Resource.query.filter_by(name='ssh_server').first()
         system  = Resource.query.filter_by(name='system').first()
         y0, y1  = datetime(2026,1,1), datetime(2026,12,31)
@@ -1357,7 +1362,7 @@ def _seed():
         web  = Resource.query.filter_by(name='web_server').first()
         db_r = Resource.query.filter_by(name='database').first()
         sysr = Resource.query.filter_by(name='system').first()
-        fs   = Resource.query.filter_by(name='file_storage').first()
+        fs   = Resource.query.filter_by(name='file_system').first()
 
         # (resource, task, threshold, window_sec, severity, pattern_name)
         patterns_seed = [

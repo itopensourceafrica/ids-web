@@ -57,7 +57,7 @@ SEVERITY_LABELS = {
 def _format_alert(data: dict) -> str:
     event     = data.get('event', {})
     violation = data.get('violation', {})
-    ts        = data.get('detected_at', datetime.utcnow().isoformat())
+    ts        = data.get('detected_at', datetime.now().isoformat())
 
     severity_label = SEVERITY_LABELS.get(violation.get('severity', 'high'), 'HAUTE')
 
@@ -85,7 +85,7 @@ _file_lock = threading.Lock()
 
 def _write_alert_log(text: str):
     os.makedirs(ALERTS_DIR, exist_ok=True)
-    day_file = os.path.join(ALERTS_DIR, datetime.utcnow().strftime('%Y-%m-%d') + '.log')
+    day_file = os.path.join(ALERTS_DIR, datetime.now().strftime('%Y-%m-%d') + '.log')
     with _file_lock:
         with open(day_file, 'a', encoding='utf-8') as f:
             f.write(text)
@@ -302,7 +302,7 @@ def _send_syslog(host: str, port: int, data: dict):
     priority = 13 * 8 + sev_num
 
     # Format RFC 3164 (BSD syslog)
-    timestamp = datetime.utcnow().strftime('%b %d %H:%M:%S')
+    timestamp = datetime.now().strftime('%b %d %H:%M:%S')
     hostname  = _socket.gethostname()
 
     msg = (

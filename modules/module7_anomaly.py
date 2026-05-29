@@ -102,7 +102,7 @@ class AnomalyDetector(threading.Thread):
         """Construit les baselines à partir des EventEntry de la fenêtre."""
         with self.app.app_context():
             from models import EventEntry
-            cutoff = datetime.utcnow() - timedelta(days=BASELINE_WINDOW_DAYS)
+            cutoff = datetime.now() - timedelta(days=BASELINE_WINDOW_DAYS)
             entries = EventEntry.query.filter(
                 EventEntry.timestamp >= cutoff
             ).all()
@@ -123,7 +123,7 @@ class AnomalyDetector(threading.Thread):
         """Analyse l'activité récente (dernière heure) vs baselines."""
         with self.app.app_context():
             from models import EventEntry
-            cutoff = datetime.utcnow() - timedelta(hours=1)
+            cutoff = datetime.now() - timedelta(hours=1)
             recent = EventEntry.query.filter(
                 EventEntry.timestamp >= cutoff
             ).all()
@@ -185,7 +185,7 @@ class AnomalyDetector(threading.Thread):
 
                 # Analyser l'activité récente
                 anomalies = self._check_recent_anomalies()
-                status['last_run'] = datetime.utcnow().strftime('%H:%M:%S')
+                status['last_run'] = datetime.now().strftime('%H:%M:%S')
 
                 for a in anomalies:
                     msg = (f'[ANOMALY] {a["username"]} — '
@@ -201,7 +201,7 @@ class AnomalyDetector(threading.Thread):
                             'source':   'anomaly_detection',
                             'execution_date': (a['execution_date'].isoformat()
                                                if a['execution_date'] else
-                                               datetime.utcnow().isoformat()),
+                                               datetime.now().isoformat()),
                             'raw':      msg[:500],
                         },
                         'violation': {
@@ -209,7 +209,7 @@ class AnomalyDetector(threading.Thread):
                             'message':  msg,
                             'severity': 'medium',  # anomalie n'est pas forcément attaque
                         },
-                        'detected_at': datetime.utcnow().isoformat(),
+                        'detected_at': datetime.now().isoformat(),
                     })
                     status['anomalies_found'] += 1
 

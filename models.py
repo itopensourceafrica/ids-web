@@ -14,7 +14,7 @@ class WebUser(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role          = db.Column(db.String(20), default='viewer')  # admin / analyst / viewer
     active        = db.Column(db.Boolean, default=True)
-    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at    = db.Column(db.DateTime, default=datetime.now)
     last_login    = db.Column(db.DateTime)
     # 2FA TOTP (RFC 6238)
     totp_secret   = db.Column(db.String(64))    # base32, généré par pyotp
@@ -40,7 +40,7 @@ class LoginAttempt(db.Model):
     """Tentative de connexion (échec ou succès) — persisté pour survivre aux restarts."""
     __tablename__ = 'login_attempt'
     id          = db.Column(db.Integer, primary_key=True)
-    timestamp   = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    timestamp   = db.Column(db.DateTime, default=datetime.now, index=True)
     ip_address  = db.Column(db.String(45), index=True)
     username    = db.Column(db.String(80))
     success     = db.Column(db.Boolean, default=False)
@@ -51,7 +51,7 @@ class LoginAttempt(db.Model):
 class AuditLog(db.Model):
     __tablename__ = 'audit_log'
     id          = db.Column(db.Integer, primary_key=True)
-    timestamp   = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp   = db.Column(db.DateTime, default=datetime.now)
     user_id     = db.Column(db.Integer, db.ForeignKey('web_user.id'))
     username    = db.Column(db.String(80))           # snapshot en cas de suppression
     action      = db.Column(db.String(100), nullable=False)
@@ -66,7 +66,7 @@ class AuditLog(db.Model):
 # ── Alertes produites par le Module 4 ──────────────────────────────────────
 class Alert(db.Model):
     id           = db.Column(db.Integer, primary_key=True)
-    timestamp    = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp    = db.Column(db.DateTime, default=datetime.now)
     message      = db.Column(db.Text, nullable=False)
     severity     = db.Column(db.String(20))
     acknowledged = db.Column(db.Boolean, default=False)
@@ -77,7 +77,7 @@ class Resource(db.Model):
     id          = db.Column(db.Integer, primary_key=True)
     name        = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
-    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at  = db.Column(db.DateTime, default=datetime.now)
 
 
 class IDSUser(db.Model):
@@ -85,7 +85,7 @@ class IDSUser(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
     username   = db.Column(db.String(100), nullable=False, unique=True)
     role       = db.Column(db.String(50), default='user')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
 
 class AccessPolicy(db.Model):
@@ -98,7 +98,7 @@ class AccessPolicy(db.Model):
     start_date  = db.Column(db.DateTime, nullable=False)
     end_date    = db.Column(db.DateTime, nullable=False)
     active      = db.Column(db.Boolean, default=True)
-    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at  = db.Column(db.DateTime, default=datetime.now)
 
     # ── Champs pour les règles policy_type='detect' (patterns comportementaux) ──
     # Ex: 5 failed_login sur ssh_server en 5s → alerte "BRUTE_FORCE_SSH"
@@ -126,7 +126,7 @@ class NidsRule(db.Model):
     action      = db.Column(db.String(10), default='alert')    # accept / deny / alert
     severity    = db.Column(db.String(20), default='medium')   # critical / high / medium / low
     active      = db.Column(db.Boolean, default=True)
-    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at  = db.Column(db.DateTime, default=datetime.now)
 
 
 # ── Données d'analyse ──────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ class EventFile(db.Model):
     id          = db.Column(db.Integer, primary_key=True)
     file_number = db.Column(db.Integer, nullable=False)
     name        = db.Column(db.String(100))
-    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at  = db.Column(db.DateTime, default=datetime.now)
     analyzed    = db.Column(db.Boolean, default=False)
 
     entries = db.relationship('EventEntry', backref='file', lazy=True)
@@ -149,7 +149,7 @@ class EventEntry(db.Model):
     resource_name  = db.Column(db.String(100), nullable=False)
     task           = db.Column(db.String(100), nullable=False)
     execution_date = db.Column(db.DateTime, nullable=False)
-    timestamp      = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp      = db.Column(db.DateTime, default=datetime.now)
 
 
 class Intrusion(db.Model):
@@ -157,6 +157,6 @@ class Intrusion(db.Model):
     id             = db.Column(db.Integer, primary_key=True)
     entry_id       = db.Column(db.Integer, db.ForeignKey('event_entry.id'), nullable=False)
     violation_type = db.Column(db.String(200))
-    detected_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    detected_at    = db.Column(db.DateTime, default=datetime.now)
 
     entry = db.relationship('EventEntry', backref='intrusion_record', uselist=False)

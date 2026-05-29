@@ -1,259 +1,252 @@
-═══════════════════════════════════════════════════════════════════════════════
-  IDS Web — SCRIPT DE DÉMONSTRATION
-  Préparation : démo devant le professeur
-═══════════════════════════════════════════════════════════════════════════════
+╔══════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║         DÉMONSTRATION IDS — SCÉNARIOS DE PRÉSENTATION                       ║
+║                                                                            ║
+║         Cible        : 192.168.99.21                                        ║
+║         Interface web: http://192.168.99.21:5000   (admin / admin)         ║
+║         Attaquant    : cette même machine (test autorisé sur soi-même)     ║
+║                                                                            ║
+╚══════════════════════════════════════════════════════════════════════════╝
 
-  CIBLE (machine où tourne l'IDS) : 192.168.100.34
-  MACHINE ATTAQUANTE (kali/ubuntu)  : <ton poste>
 
-  Avant de commencer :
-  ────────────────────────────────────────────────────────────────────────────
-   1. Sur la machine cible (192.168.100.34) :
+────────────────────────────────────────────────────────────────────────────
+ CONTEXTE — À DIRE AU PROFESSEUR
+────────────────────────────────────────────────────────────────────────────
+
+  « Voici un IDS (système de détection d'intrusions) complet, à la fois
+    réseau (NIDS) et système (HIDS). Il s'appuie sur 7 modules démons :
+    collecte, analyse, alerte, corrélation de chaînes d'attaque et détection
+    d'anomalies. La détection n'est PAS codée en dur : elle est pilotée par
+    des politiques de sécurité configurables depuis l'interface web. »
+
+  Idée maîtresse à marteler pendant la démo :
+    →  « Je peux changer un seuil de détection sans toucher au code. »
+
+
+────────────────────────────────────────────────────────────────────────────
+ PRÉREQUIS (vérifiés ✓)
+────────────────────────────────────────────────────────────────────────────
+
+  ✓ sshd actif (port 22)            → scénario brute force SSH
+  ✓ IDS web actif (port 5000)
+  ✓ auditd actif                    → détection des connexions système
+  ✓ Outils dispo : nmap, nc, curl, sshpass
+  ✗ hydra non installé              → on utilise sshpass (équivalent, déjà là)
+
+  Pour installer hydra si tu préfères la version « pro » (optionnel) :
+      sudo apt install -y hydra
+
+
+════════════════════════════════════════════════════════════════════════════
+ ÉTAPE 0 — PRÉPARATION (à faire AVANT l'arrivée du prof)
+════════════════════════════════════════════════════════════════════════════
+
+  1) Démarrer l'IDS proprement (charge le code à jour + les 7 patterns) :
+
         cd /home/roberto/.ZAP/ids_web
-        sudo -E venv/bin/python app.py
-      → vérifie que tu vois : "Running on http://0.0.0.0:5000"
-
-   2. Ouvre dans ton navigateur sur l'attaquant :
-        http://192.168.100.34:5000
-      → login : admin / admin
-      → garde 2 onglets ouverts :
-          - http://192.168.100.34:5000/alerts          (alertes temps réel)
-          - http://192.168.100.34:5000/ids/intrusions  (violations détectées)
-
-   3. Outils requis sur l'attaquant :
-        sudo apt install -y hydra nmap curl netcat-openbsd sshpass
-═══════════════════════════════════════════════════════════════════════════════
+        sudo -E python3 app.py
 
+  2) Repartir d'un tableau propre :
+        Interface web → IDS → Intrusions → bouton « Réinitialiser »
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 1 — BRUTE FORCE SSH (hydra)                                     ┃
-┃  Ce que ça démontre : HIDS détecte les failed_login répétés               ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  3) Ouvrir l'interface et se connecter :
+        http://192.168.99.21:5000      (admin / admin)
 
-# Méthode A — hydra (la plus visuelle, attaque réelle)
-# ───────────────────────────────────────────────────
-# Crée une wordlist rapide
-cat > /tmp/passwords.txt <<EOF
-123456
-password
-admin
-root
-toor
-qwerty
-azerty
-letmein
-hello
-welcome
-EOF
+  4) La liste de mots de passe est déjà créée :
+        /tmp/passwords.txt
+     (si besoin de la recréer :)
+        printf '123456\npassword\nadmin\nletmein\nroot\ntoor\nqwerty\n' > /tmp/passwords.txt
 
-# Lance le brute force SSH (10 tentatives en quelques secondes)
-hydra -l roberto -P /tmp/passwords.txt ssh://192.168.100.34 -t 4 -V
 
-# Méthode B — boucle bash + sshpass (alternative si hydra indisponible)
-# ────────────────────────────────────────────────────────────────────
-for pwd in 123456 password admin root toor qwerty azerty letmein hello welcome; do
-    echo "[*] Test : roberto:$pwd"
-    sshpass -p "$pwd" ssh -o StrictHostKeyChecking=no \
-        -o ConnectTimeout=3 roberto@192.168.100.34 "echo OK" 2>/dev/null
-    sleep 1
-done
+════════════════════════════════════════════════════════════════════════════
+ ÉTAPE 1 — PRÉSENTER LE SYSTÈME AU REPOS
+════════════════════════════════════════════════════════════════════════════
 
-# Méthode C — manuelle (la plus simple à montrer en live)
-# ───────────────────────────────────────────────────────
-ssh roberto@192.168.100.34   # tape un mauvais mot de passe
-ssh roberto@192.168.100.34   # encore un mauvais
-ssh roberto@192.168.100.34   # encore (5+ fois)
+  • Dashboard         → montrer les 7 modules « actifs » (voyants verts).
+  • IDS → Politique   → onglet « Patterns Detect » :
+                        montrer les 7 règles de détection configurables
+                        (seuil + fenêtre + sévérité).
 
-# ➜ DANS L'IDS : aller sur http://192.168.100.34:5000/alerts
-#    Tu dois voir des alertes "brute_force" / "failed_login" / SEVERITY=high
+        ┌────────────────────┬──────────────┬──────────────────────────┐
+        │ Pattern            │ Ressource    │ Déclencheur              │
+        ├────────────────────┼──────────────┼──────────────────────────┤
+        │ BRUTE_FORCE_SSH    │ ssh_server   │ 5 échecs en 5 s          │
+        │ BRUTE_FORCE_WEB    │ web_server   │ 5 échecs en 30 s         │
+        │ BRUTE_FORCE_DB     │ database     │ 3 échecs en 10 s         │
+        │ EXEC_FLOOD         │ system       │ 20 exécutions en 60 s    │
+        │ PRIVESC_ATTEMPT    │ system       │ 5 exécutions en 10 s     │
+        │ FILE_READ_FLOOD    │ file_system  │ 50 lectures en 30 s      │
+        │ FILE_DELETE_FLOOD  │ file_system  │ 10 suppressions en 30 s  │
+        └────────────────────┴──────────────┴──────────────────────────┘
 
+  • Expliquer le modèle de détection :
+        QUI (utilisateur)  fait  QUOI (action)  sur  QUELLE RESSOURCE
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 2 — SCAN DE PORTS (nmap)                                        ┃
-┃  Ce que ça démontre : NIDS détecte le scan + ports suspects ouverts       ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-# Scan TCP rapide sur tous les ports communs
-nmap -sS -T4 -p 1-1000 192.168.100.34
+════════════════════════════════════════════════════════════════════════════
+ SCÉNARIO 1 — BRUTE FORCE SSH   ★ le plus parlant
+════════════════════════════════════════════════════════════════════════════
 
-# Scan plus agressif (détection services + OS)
-sudo nmap -A -T4 192.168.100.34
+  But : prouver que l'IDS détecte une attaque par essais de mots de passe.
 
-# Scan furtif (SYN scan) pour montrer la détection même en stealth
-sudo nmap -sS -p 22,23,80,443,3306,4444,3389 192.168.100.34
+  Commande (depuis un terminal) :
 
-# ➜ DANS L'IDS : alertes "port_scan" + "Connexion SSH détectée" +
-#    "MySQL exposé" + "Port Metasploit par défaut" (selon ce qui répond)
+      for p in $(cat /tmp/passwords.txt); do
+        sshpass -p "$p" ssh -o StrictHostKeyChecking=no \
+                            -o ConnectTimeout=2 roberto@192.168.99.21 exit 2>/dev/null
+      done
 
+  Ce que le prof voit (Intrusions / Alertes) :
+      →  Alerte  [BRUTE_FORCE_SSH]  — sévérité CRITICAL
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 3 — INJECTION SQL (NIDS payload)                                ┃
-┃  Ce que ça démontre : NIDS lit le contenu des paquets et matche les       ┃
-┃  signatures (SELECT *, UNION SELECT, ' OR '1'='1, etc.)                   ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  Phrase clé :
+      « 5 tentatives en 5 secondes = brute force. Ce seuil est défini ici,
+        dans une policy, et je peux le modifier en direct. »
 
-# Envoi de payloads SQL via HTTP (le NIDS sniffe et matche)
-curl "http://192.168.100.34:5000/login?user=admin' OR '1'='1"
 
-curl "http://192.168.100.34:5000/?q=UNION SELECT username,password FROM users"
+════════════════════════════════════════════════════════════════════════════
+ SCÉNARIO 2 — SCAN DE PORTS (NIDS)
+════════════════════════════════════════════════════════════════════════════
 
-curl "http://192.168.100.34:5000/?q=DROP TABLE users"
+  But : détecter une phase de reconnaissance réseau.
 
-# Plus discret (POST)
-curl -X POST http://192.168.100.34:5000/login \
-     -d "username=' OR '1'='1&password=test"
+  Commande :
 
-# ➜ DANS L'IDS : alertes severity=critical "Injection SQL — bypass auth"
+      nmap -sT -T4 -p 1-1000 192.168.99.21
 
+  Ce que le prof voit :
+      →  Rafale d'alertes « port_scan » (détection réseau,
+         seuil interne : 15 ports en 60 s)
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 4 — XSS / PATH TRAVERSAL (NIDS payload)                         ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  Phrase clé :
+      « L'IDS repère qu'une seule machine teste de nombreux ports :
+        c'est la signature classique d'un scan. »
 
-# XSS
-curl "http://192.168.100.34:5000/search?q=<script>alert(1)</script>"
-curl "http://192.168.100.34:5000/?url=javascript:alert(document.cookie)"
 
-# Path traversal
-curl "http://192.168.100.34:5000/file?name=../../../etc/passwd"
-curl "http://192.168.100.34:5000/?path=../../../../etc/shadow"
+════════════════════════════════════════════════════════════════════════════
+ SCÉNARIO 3 — CONNEXION SUR UN PORT C2 SUSPECT
+════════════════════════════════════════════════════════════════════════════
 
-# ➜ Alertes "XSS — balise script" et "Path traversal détecté"
+  But : détecter une connexion vers un port de Command & Control connu.
 
+  Commande :
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 5 — CONNEXION SUR PORT C2 SUSPECT (NIDS)                        ┃
-┃  Ports détectés : 4444 (Metasploit), 31337, 1337, 6666                    ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      nc -zv 192.168.99.21 4444
 
-# Sur la machine CIBLE — ouvrir un listener sur port suspect
-nc -lvnp 4444 &        # puis dans un autre terminal côté attaquant :
+  Ce que le prof voit :
+      →  Alerte CRITICAL — connexion sur le port 4444
+         (port fréquemment utilisé par Metasploit / backdoors)
 
-# Depuis l'attaquant
-nc -v 192.168.100.34 4444
-# tape n'importe quoi puis Ctrl+C
 
-# Variante avec port 31337 (backdoor classique)
-nc -lvnp 31337 &       # côté cible
-nc -v 192.168.100.34 31337
+════════════════════════════════════════════════════════════════════════════
+ SCÉNARIO 4 — KILL CHAIN COMPLÈTE (corrélation — Module 6)   ★ impressionnant
+════════════════════════════════════════════════════════════════════════════
 
-# ➜ Alerte CRITICAL "Port Metasploit par défaut" / "Port backdoor classique"
+  But : montrer que l'IDS ne voit pas que des alertes isolées, mais
+        RECONSTITUE une chaîne d'attaque (recon → exploitation).
 
+  Commandes (à enchaîner rapidement) :
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 6 — VIOLATION DE POLITIQUE (HIDS allow/deny)                    ┃
-┃  Bob n'a PAS la permission "execute" → toute exécution sera alertée       ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      # 1) Reconnaissance
+      nmap -sT -T4 192.168.99.21
 
-# Sur la machine cible, simuler une connexion de "bob" qui exécute une cmd
-# (Cela génère un événement HIDS via auditd)
-sudo -u bob bash -c "echo test" 2>/dev/null || \
-   sudo useradd -m bob && sudo -u bob bash -c "ls /etc/shadow"
+      # 2) Exploitation (immédiatement après)
+      for p in $(cat /tmp/passwords.txt); do
+        sshpass -p "$p" ssh -o StrictHostKeyChecking=no \
+                            -o ConnectTimeout=2 roberto@192.168.99.21 exit 2>/dev/null
+      done
 
-# OU directement créer un événement via le collector
-ssh bob@192.168.100.34 "uname -a"   # tentative d'exécution depuis SSH
+  Ce que le prof voit :
+      →  Le Module 6 corrèle le scan + le brute force et signale une
+         CHAÎNE D'ATTAQUE (kill chain), pas seulement des événements séparés.
 
-# ➜ Violation HIDS : "bob — tâche execute refusée par politique"
+  Phrase clé :
+      « L'IDS comprend le scénario d'attaque dans sa globalité. »
 
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 7 — KILL CHAIN COMPLÈTE (Module 6 — corrélation)                ┃
-┃  Démontre la détection d'une SÉQUENCE D'ATTAQUE complète                  ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+════════════════════════════════════════════════════════════════════════════
+ SCÉNARIO 5 — BRUTE FORCE WEB → BLOCAGE AUTOMATIQUE
+════════════════════════════════════════════════════════════════════════════
 
-# 1) Reconnaissance — port scan
-nmap -sS -T4 192.168.100.34
+  But : montrer que l'interface web se protège elle-même.
 
-# 2) Exploitation — brute force SSH (immédiatement après)
-hydra -l roberto -P /tmp/passwords.txt ssh://192.168.100.34 -t 4
+  Commande :
 
-# 3) Persistance — connexion réussie (avec le bon mdp) + commande
-ssh roberto@192.168.100.34 "echo 'attacker_was_here' > /tmp/backdoor.sh"
+      URL=http://192.168.99.21:5000
+      for i in $(seq 1 8); do
+        TOKEN=$(curl -s -c /tmp/c.txt $URL/login \
+                | grep -oP 'name="_csrf_token" value="\K[^"]+')
+        curl -s -b /tmp/c.txt \
+             -d "username=admin&password=mauvais$i&_csrf_token=$TOKEN" \
+             $URL/login -o /dev/null
+      done
 
-# ➜ Au bout de ~2 min, le module 6 détecte le pattern :
-#    "SCAN_THEN_BREACH" ou "BREACH_THEN_EXEC"
-#    → alerte CRITICAL "kill_chain détectée"
+  Ce que le prof voit :
+      →  L'adresse IP de l'attaquant se fait BLOQUER après plusieurs échecs
+         (protection anti-brute-force native du portail web).
 
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 8 — TENTATIVES D'AUTH WEB (brute force sur /login)              ┃
-┃  Démontre le module brute_force.py persistant (5 essais = lockout 15 min) ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+════════════════════════════════════════════════════════════════════════════
+ ÉTAPE FINALE — LA CONFIGURABILITÉ   ★ ton vrai différenciateur
+════════════════════════════════════════════════════════════════════════════
 
-# 6 tentatives ratées d'affilée sur le login web
-for i in 1 2 3 4 5 6; do
-    curl -X POST http://192.168.100.34:5000/login \
-         -d "username=admin&password=wrongpass$i" -i 2>&1 | head -1
-    sleep 1
-done
+  1) Aller dans : IDS → Politique → Patterns Detect
+  2) Modifier le pattern BRUTE_FORCE_SSH : seuil 5 → 3
+  3) Relancer une mini-attaque (3 mots de passe suffisent) :
 
-# ➜ À la 6e tentative : "Compte verrouillé pour 15 min"
-#    Visible dans /alerts ET dans la DB (table login_attempt)
+        for p in 123456 password admin; do
+          sshpass -p "$p" ssh -o StrictHostKeyChecking=no \
+                              -o ConnectTimeout=2 roberto@192.168.99.21 exit 2>/dev/null
+        done
 
+  Ce que le prof voit :
+      →  L'alerte se déclenche désormais dès 3 tentatives.
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  SCÉNARIO 9 — DÉTECTION D'ANOMALIE COMPORTEMENTALE (Module 7)             ┃
-┃  Démontre la baseline statistique Z-score                                 ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  Phrase de conclusion :
+      « La détection s'adapte aux besoins SANS modifier une seule ligne
+        de code — uniquement via les politiques de sécurité. »
 
-# Pour ce scénario, il faut une baseline déjà constituée (7 jours d'activité).
-# En démo, montrer le module dans http://192.168.100.34:5000/ids/anomalies
 
-# Forcer une activité "anormale" pour un user qui n'agit jamais à cette heure :
-ssh charlie@192.168.100.34 "ls /etc/shadow" # charlie n'a pas le droit "execute"
+════════════════════════════════════════════════════════════════════════════
+ CHECKLIST DE PASSAGE (à cocher pendant la démo)
+════════════════════════════════════════════════════════════════════════════
 
-# ➜ Module 7 — "behavior_anomaly: tâche inhabituelle (execute) — z-score 4.2"
+   [ ]  Étape 1   — Système au repos + 7 patterns présentés
+   [ ]  Scénario 1 — Brute force SSH        → alerte BRUTE_FORCE_SSH
+   [ ]  Scénario 2 — Scan de ports nmap     → alertes port_scan
+   [ ]  Scénario 3 — Port C2 4444           → alerte CRITICAL
+   [ ]  Scénario 4 — Kill chain             → corrélation Module 6
+   [ ]  Scénario 5 — Brute force web        → blocage IP
+   [ ]  Final      — Modif seuil en direct  → détection adaptée
 
 
-═══════════════════════════════════════════════════════════════════════════════
-  CHECKLIST DÉMO PROFESSEUR — Ordre conseillé (15 min total)
-═══════════════════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════════════
+ DÉPANNAGE RAPIDE
+════════════════════════════════════════════════════════════════════════════
 
-  [ ] 0. Présentation rapide du dashboard (3 onglets : Dashboard, Alerts, IDS)
-  [ ] 1. SCÉNARIO 1 — Brute force SSH (hydra)         → alertes immédiates
-  [ ] 2. SCÉNARIO 2 — Port scan nmap                  → alertes NIDS
-  [ ] 3. SCÉNARIO 3 — Injection SQL via curl          → alertes critical
-  [ ] 4. SCÉNARIO 5 — Connexion port 4444             → alerte CRITICAL
-  [ ] 5. SCÉNARIO 8 — Brute force web                 → lockout démontré
-  [ ] 6. SCÉNARIO 7 — Kill chain complète             → corrélation
-  [ ] 7. Bonus : montrer la page /account/password    → 2FA activable
+  • Aucune alerte SSH ne tombe ?
+      - Vérifier auditd :   systemctl is-active auditd
+      - Vérifier sshd   :   systemctl is-active ssh
+      - Laisser 3-5 s : l'analyseur scanne les événements par cycles.
 
-  Points à souligner pendant la démo :
-   • HIDS + NIDS dans une seule appli
-   • 7 démons en parallèle (collector, detector, alerter, maintenance,
-     correlation, anomaly)
-   • Threat intel (AbuseIPDB + GeoIP) sur les IPs détectées
-   • Politique cumulative allow/deny par utilisateur
-   • Sécurité du dashboard : 2FA TOTP + brute force persistant + CSRF
-   • Multi-plateforme : Linux (auditd) + Windows (Sysmon)
+  • « Connection refused » sur SSH ?
+      - sshd n'écoute pas → sudo systemctl start ssh
 
+  • L'IP a encore changé ? (réseau différent)
+      - La retrouver :   ip -4 addr show wlp2s0
+      - Remplacer 192.168.99.21 partout dans ce fichier.
 
-═══════════════════════════════════════════════════════════════════════════════
-  COMMANDES DE REMISE À ZÉRO (entre 2 démos)
-═══════════════════════════════════════════════════════════════════════════════
+  • Repartir propre entre deux essais :
+      - IDS → Intrusions → Réinitialiser
 
-# Effacer toutes les alertes pour repartir propre
-cd /home/roberto/.ZAP/ids_web
-sqlite3 instance/ids.db "DELETE FROM alert; DELETE FROM intrusion; \
-                          DELETE FROM event_entry; DELETE FROM login_attempt;"
 
-# Redémarrer l'IDS proprement
-pkill -f "python app.py"
-sudo -E venv/bin/python app.py
+────────────────────────────────────────────────────────────────────────────
+ NOTE TECHNIQUE (pour toi, pas pour le prof)
+────────────────────────────────────────────────────────────────────────────
 
-
-═══════════════════════════════════════════════════════════════════════════════
-  EN CAS DE PROBLÈME PENDANT LA DÉMO
-═══════════════════════════════════════════════════════════════════════════════
-
-  • Pas d'alerte NIDS qui sort  → Lancer avec IDS_NIDS_DEBUG=1 pour voir les
-                                  paquets capturés dans la console
-  • hydra : "Connection refused" → vérifier que sshd tourne sur 192.168.100.34
-                                  (sudo systemctl start ssh)
-  • Page /alerts vide           → cliquer "Actualiser" en haut à droite
-  • IDS plante                  → sudo journalctl -u ids-web -f
-                                  (si lancé en mode systemd)
-
-═══════════════════════════════════════════════════════════════════════════════
-                          BONNE DÉMO ! 🛡️
-═══════════════════════════════════════════════════════════════════════════════
+  • Scénarios 1 à 4  : reposent sur le pipeline d'événements (NIDS + HIDS).
+  • Scénario 5       : c'est le verrou anti-brute-force du portail web
+                       (module brute_force), distinct du pattern detect.
+  • SQL / XSS depuis localhost : non détectés (le trafic purement loopback
+                       est filtré). Volontairement écartés de cette démo.
+  • Heure des alertes : affichée en heure locale (WAT, UTC+1).

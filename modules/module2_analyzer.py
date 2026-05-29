@@ -161,12 +161,19 @@ def _check_event(event: dict, policies: list) -> dict | None:
     try:
         exec_date = datetime.fromisoformat(event.get('execution_date', ''))
     except Exception:
-        exec_date = datetime.utcnow()
+        exec_date = datetime.now()
 
     # Exclure les comptes système sans contrôle d'accès
     system_accounts = {'SYSTEM', 'LOCAL SERVICE', 'NETWORK SERVICE',
                        'daemon', 'nobody', 'www-data', '_apt', 'gdm'}
     if username in system_accounts:
+        return None
+
+    # Une tentative de connexion échouée (failed_login) isolée n'est PAS une
+    # intrusion : c'est la RÉPÉTITION qui l'est. On laisse donc ces événements
+    # uniquement aux patterns 'detect' (BRUTE_FORCE_*) — pas d'alerte par
+    # événement, ce qui évite le bruit et produit une alerte propre et nommée.
+    if task == 'failed_login':
         return None
 
     # Les événements réseau ont une IP comme username (source network/*)
@@ -176,7 +183,7 @@ def _check_event(event: dict, policies: list) -> dict | None:
         import re as _re
         if _re.match(r'^\d{1,3}(\.\d{1,3}){3}$', username):
             # Ignorer les vieux événements réseau (backlog JSONL) — max 10 min
-            age = (datetime.utcnow() - exec_date).total_seconds()
+            age = (datetime.now() - exec_date).total_seconds()
             if age > 600:
                 return None
             return {
@@ -280,7 +287,7 @@ def _record_intrusion(event: dict, violation: dict, app):
         from models import db, EventFile, EventEntry, Intrusion
 
         # Récupérer ou créer le fichier d'événements du jour
-        today = f"Live_{datetime.utcnow().strftime('%Y-%m-%d')}"
+        today = f"Live_{datetime.now().strftime('%Y-%m-%d')}"
         ef = EventFile.query.filter_by(name=today).first()
         if not ef:
             num = (EventFile.query.count() or 0) + 1
@@ -292,7 +299,7 @@ def _record_intrusion(event: dict, violation: dict, app):
         try:
             exec_date = datetime.fromisoformat(event.get('execution_date', ''))
         except Exception:
-            exec_date = datetime.utcnow()
+            exec_date = datetime.now()
 
         entry = EventEntry(
             file_id=ef.id,
@@ -318,7 +325,7 @@ def _record_intrusion(event: dict, violation: dict, app):
                 'intrusion_id':  intrusion.id,
                 'event':         event,
                 'violation':     violation,
-                'detected_at':   datetime.utcnow().isoformat(),
+                'detected_at':   datetime.now().isoformat(),
             })
 
 
@@ -360,7 +367,7 @@ class EventAnalyzer(threading.Thread):
                         _process_file(fpath, cursor, policies, detect_rules, self.app)
 
             _save_cursor(cursor)
-            status['last_check'] = datetime.utcnow().strftime('%H:%M:%S')
+            status['last_check'] = datetime.now().strftime('%H:%M:%S')
             time.sleep(3)
 
 
