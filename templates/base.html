@@ -577,41 +577,41 @@
 
     <!-- Standalone -->
     <a class="nl {{ 'active' if p == '/' }}" href="/"><i class="fas fa-chart-line ico"></i> Dashboard</a>
-    <a class="nl {{ 'active' if p == '/alerts' }}" href="/alerts"><i class="fas fa-bell ico"></i> Alertes</a>
+    <a class="nl {{ 'active' if p == '/alerts' }}" href="/alerts"><i class="fas fa-bell ico"></i> Alerts</a>
     <a class="nl {{ 'active' if p == '/ids/intrusions' }}" href="/ids/intrusions"><i class="fas fa-bug ico"></i> Intrusions</a>
 
     <div class="nav-div"></div>
 
-    <!-- Dropdown : Analyse -->
+    <!-- Dropdown: Analysis -->
     {% set analyse_active = p in ('/ids', '/ids/monitoring', '/ids/files') or p.startswith('/ids/files') %}
     <div class="nav-dd">
       <span class="nl {{ 'active' if analyse_active }}">
-        <i class="fas fa-magnifying-glass ico"></i> Analyse <i class="fas fa-chevron-down caret"></i>
+        <i class="fas fa-magnifying-glass ico"></i> Analysis <i class="fas fa-chevron-down caret"></i>
       </span>
       <div class="nav-dd-menu">
-        <a href="/ids"              class="{{ 'active' if p == '/ids' }}"><i class="fas fa-play-circle"></i> Moteur</a>
+        <a href="/ids"              class="{{ 'active' if p == '/ids' }}"><i class="fas fa-play-circle"></i> Engine</a>
         <a href="/ids/monitoring"   class="{{ 'active' if p == '/ids/monitoring' }}"><i class="fas fa-tower-broadcast"></i> Monitoring</a>
-        <a href="/ids/files"        class="{{ 'active' if p.startswith('/ids/files') }}"><i class="fas fa-folder"></i> Fichiers</a>
+        <a href="/ids/files"        class="{{ 'active' if p.startswith('/ids/files') }}"><i class="fas fa-folder"></i> Files</a>
       </div>
     </div>
 
-    <!-- Dropdown : Configuration -->
+    <!-- Dropdown: Configuration -->
     {% set config_active = p in ('/ids/users', '/ids/resources', '/ids/settings', '/ids/nids') or p.startswith('/ids/policy') %}
     <div class="nav-dd">
       <span class="nl {{ 'active' if config_active }}">
         <i class="fas fa-sliders ico"></i> Config <i class="fas fa-chevron-down caret"></i>
       </span>
       <div class="nav-dd-menu">
-        <a href="/ids/users"     class="{{ 'active' if p == '/ids/users' }}"><i class="fas fa-users"></i> Utilisateurs</a>
-        <a href="/ids/resources" class="{{ 'active' if p == '/ids/resources' }}"><i class="fas fa-server"></i> Ressources</a>
-        <a href="/ids/policy"    class="{{ 'active' if p.startswith('/ids/policy') }}"><i class="fas fa-lock"></i> Politique</a>
+        <a href="/ids/users"     class="{{ 'active' if p == '/ids/users' }}"><i class="fas fa-users"></i> Users</a>
+        <a href="/ids/resources" class="{{ 'active' if p == '/ids/resources' }}"><i class="fas fa-server"></i> Resources</a>
+        <a href="/ids/policy"    class="{{ 'active' if p.startswith('/ids/policy') }}"><i class="fas fa-lock"></i> Policy</a>
         <div class="nav-dd-sep"></div>
-        <a href="/ids/nids"      class="{{ 'active' if p == '/ids/nids' }}"><i class="fas fa-broadcast-tower"></i> NIDS Réseau</a>
-        <a href="/ids/settings"  class="{{ 'active' if p == '/ids/settings' }}"><i class="fas fa-gear"></i> Paramètres</a>
+        <a href="/ids/nids"      class="{{ 'active' if p == '/ids/nids' }}"><i class="fas fa-broadcast-tower"></i> Network NIDS</a>
+        <a href="/ids/settings"  class="{{ 'active' if p == '/ids/settings' }}"><i class="fas fa-gear"></i> Settings</a>
         {% set u = current_user() %}
         {% if u and u.is_admin %}
           <div class="nav-dd-sep"></div>
-          <a href="/admin/users" class="{{ 'active' if p == '/admin/users' }}"><i class="fas fa-user-shield"></i> Comptes web</a>
+          <a href="/admin/users" class="{{ 'active' if p == '/admin/users' }}"><i class="fas fa-user-shield"></i> Web Accounts</a>
         {% endif %}
       </div>
     </div>
@@ -619,7 +619,7 @@
     <div class="nav-actions">
       <div class="status-pill">
         <div class="status-dot"></div>
-        <span class="status-text">Actif</span>
+        <span class="status-text">Active</span>
       </div>
       {% set u = current_user() %}
       {% if u %}
@@ -629,11 +629,11 @@
           </span>
           <div class="nav-dd-menu">
             <a href="/account/password">
-              <i class="fas fa-shield-halved"></i> Sécurité
+              <i class="fas fa-shield-halved"></i> Security
               {% if u.totp_enabled %}<span style="color:var(--green);font-size:10px">●</span>{% endif %}
             </a>
             <div class="nav-dd-sep"></div>
-            <a href="/logout"><i class="fas fa-right-from-bracket"></i> Déconnexion</a>
+            <a href="/logout"><i class="fas fa-right-from-bracket"></i> Logout</a>
           </div>
         </div>
       {% endif %}

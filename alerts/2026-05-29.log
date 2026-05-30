@@ -10412,3 +10412,153 @@ INTRUSION DÉTECTÉE
   Type        : file_integrity
   Ligne brute : MODIFICATION: /etc/hosts (SHA256 changé)
 ═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 21:44:23 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 10.57.173.162
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 21:44:21
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '10.57.173.162' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 10.57.173.162 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 21:44:26 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 10.57.173.10
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 21:44:25
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 10.57.173.10 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 10.57.173.10:587 → 212.227.24.204
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 21:47:27 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 10.57.173.162
+  Ressource   : network_scanner
+  Tâche       : port_scan
+  Date accès  : 2026-05-29 21:47:24
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '10.57.173.162' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : SCAN DE PORTS: 10.57.173.162 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HAUTE] 2026-05-29 21:47:30 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 10.57.173.10
+  Ressource   : email_server
+  Tâche       : connect
+  Date accès  : 2026-05-29 21:47:27
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Connexion entrante suspecte depuis 10.57.173.10 sur email_server (connect)
+  Type        : network_intrusion
+  Ligne brute : Connexion SMTP avec auth: 10.57.173.10:587 → 212.227.24.208
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 23:33:25 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 127.0.0.1
+  Ressource   : network_scanner
+  Tâche       : network_access
+  Date accès  : 2026-05-29 23:33:22
+  Source      : nids/dns_tunnel
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '127.0.0.1' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : [DNS TUNNEL] 127.0.0.1 → mobile.events.data.microsoft.com (volume anormal (51 req/60s))
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 23:33:25 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 127.0.0.1
+  Ressource   : network_scanner
+  Tâche       : network_access
+  Date accès  : 2026-05-29 23:33:24
+  Source      : nids/dns_tunnel
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '127.0.0.1' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : [DNS TUNNEL] 127.0.0.1 → api.github.com (volume anormal (51 req/60s))
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 23:33:28 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 127.0.0.1
+  Ressource   : network_scanner
+  Tâche       : network_access
+  Date accès  : 2026-05-29 23:33:26
+  Source      : nids/dns_tunnel
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '127.0.0.1' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : [DNS TUNNEL] 127.0.0.1 → detectportal.firefox.com (volume anormal (51 req/60s))
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 23:33:31 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 127.0.0.1
+  Ressource   : network_scanner
+  Tâche       : network_access
+  Date accès  : 2026-05-29 23:33:28
+  Source      : nids/dns_tunnel
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '127.0.0.1' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : [DNS TUNNEL] 127.0.0.1 → example.org (volume anormal (51 req/60s))
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 23:33:37 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : 127.0.0.1
+  Ressource   : network_scanner
+  Tâche       : network_access
+  Date accès  : 2026-05-29 23:33:34
+  Source      : nids/dns_tunnel
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur '127.0.0.1' absent de la politique de sécurité
+  Type        : user_unknown
+  Ligne brute : [DNS TUNNEL] 127.0.0.1 → 3.e.a.0.3.3.8.d.2.e.1.5.2.3.d.3.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa (s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITIQUE] 2026-05-29 23:33:37 UTC
+───────────────────────────────────────────────────────
+INTRUSION DÉTECTÉE
+  Utilisateur : roberto
+  Ressource   : system
+  Tâche       : login
+  Date accès  : 2026-05-29 23:33:34
+  Source      : audit.log
+───────────────────────────────────────────────────────
+  Violation   : Utilisateur 'roberto' n'a pas le droit d'effectuer 'login' sur 'system'
+  Type        : unauthorized_access
+  Ligne brute : type=USER_AUTH msg=audit(1780094014.470:5823): pid=134816 uid=0 auid=1000 ses=2 subj=unconfined msg=
+═══════════════════════════════════════════════════════

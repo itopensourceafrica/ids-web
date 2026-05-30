@@ -1,6 +1,6 @@
 # IDS Web — Système de Détection d'Intrusions
 
-Plateforme de détection d'intrusions modulaire, développée en Python/Flask. Elle repose sur quatre modules indépendants qui fonctionnent en permanence comme des démons dès le lancement de l'application. Elle tourne sur Linux et Windows, en local comme en production.
+Plateforme de détection d'intrusions modulaire, développée en Python/Flask. Elle repose sur **sept modules indépendants** qui fonctionnent en permanence comme des démons dès le lancement de l'application : collecte multi-source, analyseur deny-by-default avec patterns configurables, gestion de politique, alertes multicanal, maintenance, corrélation de chaînes d'attaque et détection d'anomalies comportementales. Elle tourne sur Linux et Windows, en local comme en production.
 
 ---
 
@@ -10,7 +10,7 @@ Plateforme de détection d'intrusions modulaire, développée en Python/Flask. E
 - [Installation](#installation)
 - [Démarrage](#démarrage)
 - [Structure du projet](#structure-du-projet)
-- [Les 5 modules](#les-5-modules)
+- [Les 7 modules](#les-7-modules)
 - [Sources de données](#sources-de-données)
 - [Éléments surveillés — Liste complète](#éléments-surveillés--liste-complète)
 - [Ressources & modèle d'accès](#ressources--modèle-daccès)
@@ -77,6 +77,17 @@ Le système est organisé en pipeline à **cinq étages**. Chaque module est un 
 
 ### Linux — Ubuntu / Debian
 
+#### Installation automatique (recommandée)
+
+```bash
+git clone <repo> ids_web && cd ids_web
+sudo ./deploy/install.sh
+```
+
+Le script installe Python, auditd, toutes les dépendances Python (depuis `requirements.txt`), génère un `IDS_SECRET_KEY` aléatoire et propose la création d'un service systemd.
+
+#### Installation manuelle
+
 ```bash
 # 1. Récupérer le projet
 cd /opt && git clone <repo> ids_web && cd ids_web
@@ -84,16 +95,16 @@ cd /opt && git clone <repo> ids_web && cd ids_web
 # 2. Installer Python 3.10+ et pip
 sudo apt update && sudo apt install python3 python3-pip -y
 
-# 3. Installer les dépendances Python
-#    Sur Ubuntu 24.04+ ajouter --break-system-packages (PEP 668)
-pip3 install flask flask-sqlalchemy scapy psutil python-dotenv gunicorn
+# 3. Installer TOUTES les dépendances Python depuis requirements.txt
+#    Sur Ubuntu 24.04+ le flag --break-system-packages est OBLIGATOIRE (PEP 668)
+pip3 install -r requirements.txt --break-system-packages
 
 # 4. Installer auditd (HIDS — surveillance système avancée)
 sudo apt install auditd audispd-plugins -y
 sudo systemctl enable auditd && sudo systemctl start auditd
 
 # 5. Installer scapy pour root également (capture réseau)
-sudo pip3 install scapy --break-system-packages
+sudo pip3 install -r requirements.txt --break-system-packages
 
 # 6. Autoriser la lecture des logs (optionnel si on lance avec sudo)
 sudo chmod o+r /var/log/auth.log
@@ -108,8 +119,8 @@ sudo -E python3 app.py
 ### Linux — RHEL / CentOS / Fedora
 
 ```bash
-pip3 install flask flask-sqlalchemy scapy psutil python-dotenv gunicorn
-sudo dnf install audit -y
+sudo dnf install python3 python3-pip audit -y
+pip3 install -r requirements.txt --break-system-packages
 sudo systemctl enable auditd && sudo systemctl start auditd
 sudo chmod o+r /var/log/secure
 sudo -E python3 app.py
@@ -161,14 +172,30 @@ Une fois lancé, l'interface web est accessible à :
 http://localhost:5000
 ```
 
-Les quatre modules démarrent automatiquement dans l'ordre suivant :
+### Identifiants de connexion
+
+| Méthode d'installation | Username | Password |
+|---|---|---|
+| Manuel Linux (sans `IDS_ADMIN_PASSWORD`) | `admin` | `admin` |
+| Script `./deploy/install-windows.ps1` | `admin` | mot de passe fort généré (ex. `V8GnqQc~!Wb.Tqg`) — affiché à la fin du script et sauvegardé dans `C:\Program Files\IDS_Web\.secrets.txt` |
+| `IDS_ADMIN_PASSWORD` défini avant le 1er démarrage | `admin` | la valeur fournie |
+
+Le mot de passe doit être changé via **Compte → Mot de passe** après la première connexion.
+
+### Démarrage des modules
+
+Les **sept modules** démarrent automatiquement dans l'ordre suivant :
 
 ```
 [MODULE 3] Politique chargée depuis policy.conf
 [MODULE 1] Collecteur démarré (OS=Linux)
 [MODULE 2] Analyseur démarré
+[MODULE 2] 7 patterns detect chargés
 [MODULE 4] Générateur d'alertes démarré
-[IDS] Les 4 modules sont démarrés.
+[MODULE 5] Maintenance démarrée
+[MODULE 6] Corrélation kill chain démarrée (fenêtre 1800s)
+[MODULE 7] Détecteur d'anomalies démarré
+[IDS] Les 7 modules sont démarrés.
 ```
 
 ---
@@ -206,7 +233,7 @@ ids_web/
 
 ---
 
-## Les 5 modules
+## Les 7 modules
 
 ### Module 1 — Collecteur d'événements
 
@@ -224,7 +251,7 @@ Observe en permanence plusieurs sources système et réseau. Pour chaque événe
 | `WindowsServiceMonitor` | Nouveaux services + binPath suspects | Windows | Administrateur |
 | `NetworkCapture` | Paquets IP/IPv6 (scapy) + moteur de règles + JA3 + DNS tunnel | Linux + Windows | root / Admin (+ npcap sur Windows) |
 | `FileIntegrityMonitor` | Hash SHA-256 des fichiers critiques | Linux + Windows | Lecture seule |
-| `ProcessMonitor` | Nouveaux processus suspects (140+ outils offensifs) | Linux + Windows | Utilisateur standard |
+| `ProcessMonitor` | Nouveaux processus suspects (160+ outils offensifs) | Linux + Windows | Utilisateur standard |
 
 ### Module 2 — Analyseur d'événements
 
@@ -232,10 +259,19 @@ Surveille le dossier `events/` toutes les 3 secondes. Pour chaque nouvelle ligne
 
 Le système fonctionne en **deny-by-default** avec **accumulation cumulative de droits** : chaque règle `allow` ajoute une permission, chaque règle `deny` la retire. Les règles sont évaluées dans l'ordre.
 
-Il effectue également deux analyses complémentaires de manière indépendante :
+Il exécute également un **moteur de patterns de détection comportementale** configurable depuis l'interface (`/ids/policy` → onglet *Patterns Detect*). Chaque pattern associe une ressource, une tâche, un seuil et une fenêtre temporelle. Sept patterns sont fournis par défaut :
 
-- **Détection brute force** : comptage des `failed_login` par utilisateur sur une fenêtre glissante de 60 secondes. Alerte déclenchée à 5 tentatives.
-- **Détection scan de ports** : comptage des ports distincts contactés par une même IP sur 60 secondes. Alerte déclenchée à 15 ports différents.
+| Pattern | Ressource | Tâche | Seuil / Fenêtre | Sévérité |
+|---|---|---|---|---|
+| `BRUTE_FORCE_SSH` | `ssh_server` | `failed_login` | 5 / 5 s | critical |
+| `BRUTE_FORCE_WEB` | `web_server` | `failed_login` | 5 / 30 s | high |
+| `BRUTE_FORCE_DB` | `database` | `failed_login` | 3 / 10 s | critical |
+| `EXEC_FLOOD` | `system` | `execute` | 20 / 60 s | high |
+| `PRIVESC_ATTEMPT` | `system` | `execute` | 5 / 10 s | critical |
+| `FILE_READ_FLOOD` | `file_system` | `read` | 50 / 30 s | high |
+| `FILE_DELETE_FLOOD` | `file_system` | `delete` | 10 / 30 s | critical |
+
+Les seuils sont modifiables à chaud, sans toucher au code. La détection de **scan de ports** réseau (15 ports distincts par IP en 60 s) est assurée au niveau du Module 1 (collecteur).
 
 ### Module 3 — Gestion de la politique de sécurité
 
@@ -271,6 +307,35 @@ Démon qui tourne en arrière-plan (toutes les heures par défaut) pour assurer 
 
 Configuration via variables d'environnement (voir [Variables d'environnement](#variables-denvironnement)).
 
+### Module 6 — Corrélation de chaînes d'attaque (kill chain)
+
+Une intrusion isolée ne révèle qu'un fragment de l'intention de l'attaquant. Ce module **relie des intrusions successives** d'un même acteur (adresse IP ou utilisateur) pour reconstituer une chaîne d'attaque. Il scanne la table des intrusions toutes les 60 s sur une fenêtre glissante de 30 min (`IDS_KILLCHAIN_WINDOW`) et détecte trois enchaînements caractéristiques :
+
+| Pattern | Séquence détectée |
+|---|---|
+| `SCAN_THEN_BREACH` | Scan de ports → force brute (reconnaissance puis exploitation) |
+| `BREACH_THEN_EXEC` | Force brute → exécution de commande (accès puis action) |
+| `PERSIST_AFTER_EXEC` | Exécution → modification de persistance (cron, registre, systemd) |
+
+Émet une alerte **critique** `kill_chain_*` décrivant les étapes horodatées, avec déduplication par couple (pattern, acteur).
+
+### Module 7 — Détection d'anomalies comportementales
+
+Approche statistique non supervisée. Pour chaque utilisateur surveillé, il construit une **baseline** de comportement normal sur 7 jours (`IDS_BASELINE_DAYS`) :
+
+- distribution horaire de l'activité (24 intervalles)
+- ressources habituellement accédées
+- tâches habituellement effectuées
+- taux moyen d'échecs de connexion
+
+Toutes les 5 min (`IDS_ANOMALY_INTERVAL`), l'activité récente est comparée à la baseline. Trois écarts déclenchent une alerte **moyenne** `behavior_anomaly` :
+
+- heure inhabituelle (Z-score > 3,0, paramètre `IDS_ANOMALY_ZSCORE`)
+- ressource jamais/rarement vue par cet utilisateur
+- tâche inhabituelle pour cet utilisateur
+
+Minimum 50 échantillons requis avant tout scoring pour éviter les faux positifs sur les profils peu observés.
+
 ---
 
 ## Sources de données
@@ -299,7 +364,7 @@ Calcule le condensat SHA-256 des fichiers critiques (`/etc/passwd`, `/etc/shadow
 
 ### Surveillance des processus (psutil)
 
-Détecte l'apparition de nouveaux processus dont le nom ou la ligne de commande correspond à une liste d'outils offensifs connus (97 outils répertoriés : nmap, hydra, netcat, mimikatz, sqlmap, xmrig, etc.).
+Détecte l'apparition de nouveaux processus dont le nom ou la ligne de commande correspond à une liste d'outils offensifs connus (plus de 160 outils répertoriés : nmap, hydra, netcat, mimikatz, sqlmap, xmrig, etc.).
 
 ---
 
@@ -334,7 +399,7 @@ Détecte l'apparition de nouveaux processus dont le nom ou la ligne de commande 
 Les 7 fichiers critiques sont hachés toutes les 30 secondes et comparés. Toute modification génère immédiatement une intrusion :
 - `/etc/passwd`, `/etc/shadow`, `/etc/sudoers`, `/etc/ssh/sshd_config`, `/etc/crontab`, `/etc/hosts`, `/etc/pam.d/common-auth`
 
-#### 4. Surveillance processus — 97+ outils offensifs détectés
+#### 4. Surveillance processus — 160+ outils offensifs détectés
 
 **Shells alternatifs :** bash, sh, zsh, ksh, tcsh, csh, busybox, ash, mksh
 
