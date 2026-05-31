@@ -1,5 +1,9 @@
 # IDS Web — Système de Détection d'Intrusions
 
+![Aperçu du tableau de bord](docs/dashboard.png)
+
+> **Projet à but éducatif.** Cet IDS a été développé dans un cadre académique (Master 2 Cybersécurité, Université de Yaoundé I) pour illustrer les concepts de détection d'intrusions HIDS/NIDS. Il ne remplace pas une solution professionnelle (Wazuh, Suricata, Snort, OSSEC) en environnement de production critique.
+
 Plateforme de détection d'intrusions modulaire, développée en Python/Flask. Elle repose sur **sept modules indépendants** qui fonctionnent en permanence comme des démons dès le lancement de l'application : collecte multi-source, analyseur deny-by-default avec patterns configurables, gestion de politique, alertes multicanal, maintenance, corrélation de chaînes d'attaque et détection d'anomalies comportementales. Elle tourne sur Linux et Windows, en local comme en production.
 
 ---
