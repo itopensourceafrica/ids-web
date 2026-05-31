@@ -2,46 +2,46 @@
 {% block content %}
 <div class="pg-head a1">
   <div>
-    <a href="/ids/files" style="font-size:12.5px;color:var(--text-3);text-decoration:none;display:block;margin-bottom:4px"><i class="fas fa-arrow-left"></i> Fichiers</a>
+    <a href="/ids/files" style="font-size:12.5px;color:var(--text-3);text-decoration:none;display:block;margin-bottom:4px"><i class="fas fa-arrow-left"></i> Files</a>
     <div class="pg-title">{{ file.name }}</div>
     <div class="pg-sub flex items gap-2">
-      Fichier #{{ file.file_number }} — {{ entries|length }} entrée(s)
-      <span class="badge badge-{{ 'ok' if file.analyzed else 'gray' }}">{{ 'Analysé' if file.analyzed else 'Non analysé' }}</span>
+      File #{{ file.file_number }} — {{ entries|length }} entry(ies)
+      <span class="badge badge-{{ 'ok' if file.analyzed else 'gray' }}">{{ 'Analyzed' if file.analyzed else 'Not analyzed' }}</span>
     </div>
   </div>
 </div>
 <div class="two-col" style="grid-template-columns:320px 1fr">
   <div class="a2">
     <div class="card">
-      <div class="card-header"><h6>Ajouter une entrée</h6></div>
+      <div class="card-header"><h6>Add entry</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/files/{{ file.id }}/add_entry">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="f-group">
-            <label class="f-label">Utilisateur</label>
+            <label class="f-label">User</label>
             <select name="username" class="f-select" required>
-              <option value="">— Choisir —</option>
+              <option value="">— Choose —</option>
               {% for u in users %}<option value="{{ u.username }}">{{ u.username }}</option>{% endfor %}
-              <option value="inconnu">inconnu (test)</option>
+              <option value="inconnu">unknown (test)</option>
             </select>
           </div>
           <div class="f-group">
-            <label class="f-label">Ressource</label>
+            <label class="f-label">Resource</label>
             <select name="resource_name" class="f-select" required>
-              <option value="">— Choisir —</option>
+              <option value="">— Choose —</option>
               {% for r in resources %}<option value="{{ r.name }}">{{ r.name }}</option>{% endfor %}
             </select>
           </div>
           <div class="f-group">
-            <label class="f-label">Tâche</label>
+            <label class="f-label">Task</label>
             <select name="task" class="f-select" required>
               <option value="read">read</option><option value="write">write</option>
               <option value="delete">delete</option><option value="execute">execute</option>
               <option value="admin">admin</option><option value="login">login</option>
             </select>
           </div>
-          <div class="f-group"><label class="f-label">Date d'exécution</label><input type="datetime-local" name="execution_date" class="f-input" required></div>
-          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Ajouter et analyser</button>
+          <div class="f-group"><label class="f-label">Execution date</label><input type="datetime-local" name="execution_date" class="f-input" required></div>
+          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Add and analyze</button>
         </form>
       </div>
     </div>
@@ -50,7 +50,7 @@
     <div class="card">
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>#</th><th>Utilisateur</th><th>Ressource</th><th>Tâche</th><th>Date d'exécution</th><th>Résultat</th></tr></thead>
+          <thead><tr><th>#</th><th>User</th><th>Resource</th><th>Task</th><th>Execution date</th><th>Result</th></tr></thead>
           <tbody>
           {% for e in entries %}
             <tr>
@@ -77,7 +77,7 @@
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--text-3)">Aucune entrée</td></tr>
+            <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--text-3)">No entries</td></tr>
           {% endfor %}
           </tbody>
         </table>

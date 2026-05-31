@@ -69,28 +69,25 @@ New-Item -ItemType Directory -Path "$InstallDir\alerts"   -Force | Out-Null
 Write-Host "  Installation des dépendances Python..."
 python -m pip install -q -r "$InstallDir\requirements.txt"
 
-# 5. Générer secrets
-Write-Host "`n[5/5] Génération des secrets..."
+# 5. Générer la clé secrète (le mot de passe admin reste admin/admin par défaut)
+Write-Host "`n[5/5] Génération de la clé secrète..."
 $secretKey = -join ((1..64) | ForEach-Object {Get-Random -Maximum 16 | ForEach-Object {'{0:x}' -f $_}})
-$adminPwd  = -join ((33..126) | Get-Random -Count 20 | ForEach-Object {[char]$_})
 
-# Sauver les secrets
+# Sauver la clé secrète
 $secretsFile = "$InstallDir\.secrets.txt"
 @"
-# IDS Web — Secrets de première installation
+# IDS Web — Clé secrète de première installation
 # Date : $(Get-Date)
 
 IDS_SECRET_KEY=$secretKey
-IDS_ADMIN_PASSWORD=$adminPwd
 
 # Première connexion :
 #   Username : admin
-#   Password : $adminPwd
+#   Password : admin   (à changer immédiatement via /account/password)
 "@ | Out-File -FilePath $secretsFile -Encoding UTF8
 
-# Variables d'environnement système
-[Environment]::SetEnvironmentVariable('IDS_SECRET_KEY',     $secretKey, 'Machine')
-[Environment]::SetEnvironmentVariable('IDS_ADMIN_PASSWORD', $adminPwd,  'Machine')
+# Variable d'environnement système (clé Flask uniquement)
+[Environment]::SetEnvironmentVariable('IDS_SECRET_KEY', $secretKey, 'Machine')
 
 Write-Host "`n═══════════════════════════════════════════════════════"
 Write-Host "  ✓ Installation terminée"
@@ -103,7 +100,7 @@ Write-Host ""
 Write-Host "  Première connexion :"
 Write-Host "    URL      : http://localhost:5000"
 Write-Host "    Username : admin"
-Write-Host "    Password : $adminPwd"
+Write-Host "    Password : admin   (à changer immédiatement)"
 Write-Host ""
 Write-Host "  Secrets sauvegardés : $secretsFile"
 Write-Host ""

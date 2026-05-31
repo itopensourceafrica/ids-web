@@ -3,27 +3,27 @@
 
 <div class="pg-head a1">
   <div>
-    <div class="pg-title">Tableau de Bord</div>
-    <div class="pg-sub">Vue d'ensemble — détection HIDS et NIDS en temps réel</div>
+    <div class="pg-title">Dashboard</div>
+    <div class="pg-sub">Overview — real-time HIDS and NIDS detection</div>
   </div>
   <div class="flex items gap-2">
     <a href="/ids/monitoring" class="btn btn-outline btn-sm"><i class="fas fa-tower-broadcast"></i> Monitoring</a>
-    <a href="/ids/intrusions" class="btn btn-primary btn-sm"><i class="fas fa-bug"></i> Voir intrusions</a>
+    <a href="/ids/intrusions" class="btn btn-primary btn-sm"><i class="fas fa-bug"></i> View intrusions</a>
   </div>
 </div>
 
 <!-- Stats row -->
 <div class="g-stats g-5 mb-4 a2">
   <div class="stat stat-red">
-    <div class="stat-lbl">Alertes critiques <i class="fas fa-exclamation-triangle"></i></div>
+    <div class="stat-lbl">Critical alerts <i class="fas fa-exclamation-triangle"></i></div>
     <div class="stat-val" id="c0">{{ critical }}</div>
   </div>
   <div class="stat stat-amber">
-    <div class="stat-lbl">Alertes hautes <i class="fas fa-triangle-exclamation"></i></div>
+    <div class="stat-lbl">High alerts <i class="fas fa-triangle-exclamation"></i></div>
     <div class="stat-val" id="c1">{{ high }}</div>
   </div>
   <div class="stat stat-blue">
-    <div class="stat-lbl">Total alertes <i class="fas fa-bell"></i></div>
+    <div class="stat-lbl">Total alerts <i class="fas fa-bell"></i></div>
     <div class="stat-val" id="c2">{{ total_alerts }}</div>
   </div>
   <div class="stat stat-red">
@@ -31,7 +31,7 @@
     <div class="stat-val" id="c3">{{ total_intrusions }}</div>
   </div>
   <div class="stat stat-purple">
-    <div class="stat-lbl">Fichiers d'événements <i class="fas fa-folder"></i></div>
+    <div class="stat-lbl">Event files <i class="fas fa-folder"></i></div>
     <div class="stat-val" id="c4">{{ total_files }}</div>
   </div>
 </div>
@@ -39,15 +39,15 @@
 <!-- Recent intrusions -->
 <div class="a3">
   <div class="flex items between mb-2">
-    <div class="section-lbl mb-0">Dernières intrusions détectées</div>
-    <a href="/ids/intrusions" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">Voir tout →</a>
+    <div class="section-lbl mb-0">Latest detected intrusions</div>
+    <a href="/ids/intrusions" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">View all →</a>
   </div>
   <div class="card">
     <div class="tbl-wrap">
       <table class="tbl">
         <thead>
           <tr>
-            <th>Horodatage</th><th>Utilisateur</th><th>Ressource</th><th>Tâche</th><th>Violation</th>
+            <th>Timestamp</th><th>User</th><th>Resource</th><th>Task</th><th>Violation</th>
           </tr>
         </thead>
         <tbody>
@@ -63,7 +63,7 @@
           <tr>
             <td colspan="5" style="text-align:center;padding:48px;color:var(--text-3)">
               <i class="fas fa-shield-halved" style="font-size:26px;display:block;margin-bottom:8px;opacity:.2;color:var(--green)"></i>
-              Aucune intrusion détectée — le système surveille en temps réel.
+              No intrusion detected — the system is monitoring in real time.
             </td>
           </tr>
         {% endfor %}
@@ -76,8 +76,8 @@
 <!-- Alerts row -->
 <div class="mt-3 a4">
   <div class="flex items between mb-2">
-    <div class="section-lbl mb-0">Alertes récentes</div>
-    <a href="/alerts" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">Voir tout →</a>
+    <div class="section-lbl mb-0">Recent alerts</div>
+    <a href="/alerts" style="font-size:12.5px;color:var(--blue);text-decoration:none;font-weight:600">View all →</a>
   </div>
   <div class="card" style="max-height:360px;overflow-y:auto">
     {% for alert in alerts %}
@@ -89,14 +89,14 @@
         <div style="font-size:13px;color:var(--text);line-height:1.4" class="truncate">{{ alert.message[:120] }}</div>
         {% if not alert.acknowledged %}
           <a href="/ack_alert/{{ alert.id }}" style="font-size:12px;color:var(--blue);text-decoration:none;font-weight:600;display:inline-block">
-            Acquitter →
+            Acknowledge →
           </a>
         {% endif %}
       </div>
     {% else %}
       <div style="padding:48px;text-align:center;color:var(--text-3)">
         <i class="fas fa-check-circle" style="font-size:26px;display:block;margin-bottom:8px;opacity:.2;color:var(--green)"></i>
-        Aucune alerte
+        No alerts
       </div>
     {% endfor %}
   </div>

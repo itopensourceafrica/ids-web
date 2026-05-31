@@ -1,25 +1,25 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Utilisateurs</div><div class="pg-sub">Comptes surveillés</div></div>
-  <span class="badge badge-blue">{{ users|length }} utilisateur(s)</span>
+  <div><div class="pg-title">Users</div><div class="pg-sub">Watched accounts</div></div>
+  <span class="badge badge-blue">{{ users|length }} user(s)</span>
 </div>
 <div class="two-col" style="grid-template-columns:320px 1fr">
   <div class="a2">
     <div class="card">
-      <div class="card-header"><h6>Ajouter un utilisateur</h6></div>
+      <div class="card-header"><h6>Add user</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/users/add">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <div class="f-group"><label class="f-label">Nom d'utilisateur</label><input type="text" name="username" class="f-input" placeholder="ex: alice" required></div>
+          <div class="f-group"><label class="f-label">Username</label><input type="text" name="username" class="f-input" placeholder="e.g.: alice" required></div>
           <div class="f-group">
-            <label class="f-label">Rôle</label>
+            <label class="f-label">Role</label>
             <select name="role" class="f-select">
-              <option value="user">Utilisateur (user)</option>
-              <option value="admin">Administrateur (admin)</option>
+              <option value="user">User (user)</option>
+              <option value="admin">Administrator (admin)</option>
             </select>
           </div>
-          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Ajouter</button>
+          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Add</button>
         </form>
       </div>
     </div>
@@ -28,7 +28,7 @@
     <div class="card">
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Créé le</th><th>Action</th></tr></thead>
+          <thead><tr><th>User</th><th>Role</th><th>Created</th><th>Action</th></tr></thead>
           <tbody>
           {% for u in users %}
             <tr>
@@ -40,10 +40,10 @@
               </td>
               <td><span class="badge badge-{{ 'red' if u.role=='admin' else 'gray' }}">{{ u.role }}</span></td>
               <td style="color:var(--text-3);font-size:12.5px">{{ u.created_at.strftime('%d/%m/%Y') }}</td>
-              <td><a href="/ids/users/delete/{{ u.id }}" onclick="return confirm('Supprimer {{ u.username }} ?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a></td>
+              <td><a href="/ids/users/delete/{{ u.id }}" onclick="return confirm('Delete {{ u.username }}?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a></td>
             </tr>
           {% else %}
-            <tr><td colspan="4" style="text-align:center;padding:48px;color:var(--text-3)">Aucun utilisateur</td></tr>
+            <tr><td colspan="4" style="text-align:center;padding:48px;color:var(--text-3)">No users</td></tr>
           {% endfor %}
           </tbody>
         </table>

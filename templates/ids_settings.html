@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Paramètres</div><div class="pg-sub">Notifications (Email, Slack, Discord, Teams, syslog) et surveillance</div></div>
+  <div><div class="pg-title">Settings</div><div class="pg-sub">Notifications (Email, Slack, Discord, Teams, syslog) and monitoring</div></div>
 </div>
 
 <!-- Webhooks Slack / Discord / Teams / Syslog -->
 <div class="card a1" style="margin-bottom:20px">
-  <div class="card-header"><i class="fas fa-bell" style="color:var(--blue)"></i><h6>Notifications externes</h6></div>
+  <div class="card-header"><i class="fas fa-bell" style="color:var(--blue)"></i><h6>External notifications</h6></div>
   <div class="card-body">
     <form method="POST" action="/ids/settings">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -41,7 +41,7 @@
                  placeholder="https://outlook.office.com/webhook/...">
         </div>
         <div class="f-group">
-          <label class="f-label">Sévérité minimale</label>
+          <label class="f-label">Minimum severity</label>
           <select name="min_severity" class="f-select">
             {% for s in ['low', 'medium', 'high', 'critical'] %}
               <option value="{{ s }}" {% if webhooks.get('min_severity') == s %}selected{% endif %}>
@@ -69,7 +69,7 @@
       </div>
 
       <button type="submit" class="btn btn-primary mt-2">
-        <i class="fas fa-save"></i> Sauvegarder webhooks
+        <i class="fas fa-save"></i> Save webhooks
       </button>
     </form>
   </div>
@@ -79,16 +79,16 @@
 
   <!-- SMTP -->
   <div class="card a2">
-    <div class="card-header"><i class="fas fa-envelope" style="color:var(--blue)"></i><h6>Notification Email (SMTP)</h6></div>
+    <div class="card-header"><i class="fas fa-envelope" style="color:var(--blue)"></i><h6>Email Notification (SMTP)</h6></div>
     <div class="card-body">
       <p style="font-size:13px;color:var(--text-3);margin-bottom:16px">
-        Configurez le serveur SMTP pour recevoir une alerte email à chaque intrusion détectée.
-        Laissez vide pour désactiver.
+        Configure the SMTP server to receive an email alert on every detected intrusion.
+        Leave empty to disable.
       </p>
       <form method="POST" action="/ids/settings">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="smtp">
-        <div class="f-group"><label class="f-label">Serveur SMTP</label>
+        <div class="f-group"><label class="f-label">SMTP server</label>
           <input type="text" name="smtp_host" class="f-input" value="{{ smtp.get('host','') }}" placeholder="smtp.gmail.com"></div>
         <div class="g-stats g-2">
           <div class="f-group"><label class="f-label">Port</label>
@@ -98,43 +98,43 @@
             <label for="smtp_tls" class="f-label" style="margin:0">TLS/STARTTLS</label>
           </div>
         </div>
-        <div class="f-group"><label class="f-label">Utilisateur</label>
+        <div class="f-group"><label class="f-label">User</label>
           <input type="text" name="smtp_user" class="f-input" value="{{ smtp.get('user','') }}" placeholder="user@example.com"></div>
-        <div class="f-group"><label class="f-label">Mot de passe</label>
+        <div class="f-group"><label class="f-label">Password</label>
           <input type="password" name="smtp_password" class="f-input" value="{{ smtp.get('password','') }}"></div>
-        <div class="f-group"><label class="f-label">Expéditeur (From)</label>
+        <div class="f-group"><label class="f-label">Sender (From)</label>
           <input type="email" name="smtp_from" class="f-input" value="{{ smtp.get('from','') }}" placeholder="ids@example.com"></div>
-        <div class="f-group"><label class="f-label">Destinataire (To)</label>
+        <div class="f-group"><label class="f-label">Recipient (To)</label>
           <input type="email" name="smtp_to" class="f-input" value="{{ smtp.get('to','') }}" placeholder="admin@example.com"></div>
-        <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-save"></i> Sauvegarder SMTP</button>
+        <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-save"></i> Save SMTP</button>
       </form>
       <div style="margin-top:12px;padding:10px;background:var(--surface-2,#f8f9fb);border-radius:8px;font-size:12px;color:var(--text-3)">
-        Fichier : <code>{{ config_file }}</code>
+        File: <code>{{ config_file }}</code>
       </div>
     </div>
   </div>
 
   <!-- Intégrité fichiers -->
   <div class="card a3">
-    <div class="card-header"><i class="fas fa-file-shield" style="color:var(--amber,#f59e0b)"></i><h6>Surveillance d'Intégrité (SHA-256)</h6></div>
+    <div class="card-header"><i class="fas fa-file-shield" style="color:var(--amber,#f59e0b)"></i><h6>Integrity Monitoring (SHA-256)</h6></div>
     <div class="card-body">
       <p style="font-size:13px;color:var(--text-3);margin-bottom:16px">
-        Un chemin de fichier par ligne. Les modifications sont détectées toutes les 30 secondes.
-        Redémarrez le collecteur pour appliquer les changements.
+        One file path per line. Changes are detected every 30 seconds.
+        Restart the collector to apply changes.
       </p>
       <form method="POST" action="/ids/settings">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="integrity">
         <div class="f-group">
-          <label class="f-label">Fichiers à surveiller</label>
+          <label class="f-label">Files to watch</label>
           <textarea name="integrity_paths" class="f-input" rows="10"
             style="font-family:monospace;font-size:12px;resize:vertical"
             placeholder="/etc/passwd&#10;/etc/shadow&#10;/etc/sudoers&#10;/etc/hosts&#10;/etc/crontab">{{ integrity_paths }}</textarea>
         </div>
-        <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-save"></i> Sauvegarder</button>
+        <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-save"></i> Save</button>
       </form>
       <div style="margin-top:12px;padding:10px;background:var(--surface-2,#f8f9fb);border-radius:8px;font-size:12px;color:var(--text-3)">
-        Fichier : <code>{{ integrity_file }}</code>
+        File: <code>{{ integrity_file }}</code>
       </div>
     </div>
   </div>

@@ -2,15 +2,15 @@
 {% block content %}
 <div class="pg-head a1">
   <div>
-    <div class="pg-title">Alertes de Sécurité</div>
-    <div class="pg-sub">{{ total }} alerte(s) — page {{ page }}/{{ pages or 1 }}</div>
+    <div class="pg-title">Security Alerts</div>
+    <div class="pg-sub">{{ total }} alert(s) — page {{ page }}/{{ pages or 1 }}</div>
   </div>
   <div class="flex items gap-2">
     <a href="/alerts/export.csv?{{ request.query_string.decode() }}" class="btn btn-outline btn-sm">
       <i class="fas fa-file-csv"></i> Export CSV
     </a>
     <a href="/ack_all_alerts" class="btn btn-outline btn-sm">
-      <i class="fas fa-check-double"></i> Tout acquitter
+      <i class="fas fa-check-double"></i> Acknowledge all
     </a>
   </div>
 </div>
@@ -19,13 +19,13 @@
 <div class="card a2" style="margin-bottom:16px; padding:14px 18px">
   <form method="GET" action="/alerts" style="display:grid; grid-template-columns: 1fr 160px 160px 140px auto; gap:10px; align-items:end">
     <div class="f-group" style="margin:0">
-      <label class="f-label" style="font-size:11px">Recherche</label>
+      <label class="f-label" style="font-size:11px">Search</label>
       <input type="text" name="q" class="f-input" placeholder="message..." value="{{ filter_q }}">
     </div>
     <div class="f-group" style="margin:0">
-      <label class="f-label" style="font-size:11px">Sévérité</label>
+      <label class="f-label" style="font-size:11px">Severity</label>
       <select name="severity" class="f-select">
-        <option value="">Toutes</option>
+        <option value="">All</option>
         <option value="critical" {% if filter_sev == 'critical' %}selected{% endif %}>Critical</option>
         <option value="high"     {% if filter_sev == 'high' %}selected{% endif %}>High</option>
         <option value="medium"   {% if filter_sev == 'medium' %}selected{% endif %}>Medium</option>
@@ -33,25 +33,25 @@
       </select>
     </div>
     <div class="f-group" style="margin:0">
-      <label class="f-label" style="font-size:11px">Statut</label>
+      <label class="f-label" style="font-size:11px">Status</label>
       <select name="status" class="f-select">
-        <option value="">Toutes</option>
-        <option value="unack" {% if filter_status == 'unack' %}selected{% endif %}>Non lues</option>
-        <option value="ack"   {% if filter_status == 'ack' %}selected{% endif %}>Acquittées</option>
+        <option value="">All</option>
+        <option value="unack" {% if filter_status == 'unack' %}selected{% endif %}>Unread</option>
+        <option value="ack"   {% if filter_status == 'ack' %}selected{% endif %}>Acknowledged</option>
       </select>
     </div>
     <div class="f-group" style="margin:0">
-      <label class="f-label" style="font-size:11px">Période</label>
+      <label class="f-label" style="font-size:11px">Period</label>
       <select name="days" class="f-select">
-        <option value="">Toutes</option>
+        <option value="">All</option>
         <option value="1"  {% if filter_days == '1' %}selected{% endif %}>24h</option>
-        <option value="7"  {% if filter_days == '7' %}selected{% endif %}>7 jours</option>
-        <option value="30" {% if filter_days == '30' %}selected{% endif %}>30 jours</option>
-        <option value="90" {% if filter_days == '90' %}selected{% endif %}>90 jours</option>
+        <option value="7"  {% if filter_days == '7' %}selected{% endif %}>7 days</option>
+        <option value="30" {% if filter_days == '30' %}selected{% endif %}>30 days</option>
+        <option value="90" {% if filter_days == '90' %}selected{% endif %}>90 days</option>
       </select>
     </div>
     <button type="submit" class="btn btn-primary btn-sm" style="height:38px">
-      <i class="fas fa-filter"></i> Filtrer
+      <i class="fas fa-filter"></i> Filter
     </button>
   </form>
 </div>
@@ -61,8 +61,8 @@
     <table class="tbl">
       <thead>
         <tr>
-          <th>Date</th><th>Source</th><th>Sévérité</th>
-          <th>Message</th><th>Statut</th><th>Action</th>
+          <th>Date</th><th>Source</th><th>Severity</th>
+          <th>Message</th><th>Status</th><th>Action</th>
         </tr>
       </thead>
       <tbody>
@@ -78,16 +78,16 @@
             {% if is_ids %}
               <span class="badge badge-red"><i class="fas fa-bug"></i> IDS</span>
             {% else %}
-              <span class="badge badge-gray"><i class="fas fa-network-wired"></i> Réseau</span>
+              <span class="badge badge-gray"><i class="fas fa-network-wired"></i> Network</span>
             {% endif %}
           </td>
           <td><span class="badge badge-{{ sev_badge }}">{{ sev.upper() }}</span></td>
           <td style="max-width:420px;font-size:13px">{{ a.message }}</td>
           <td>
             {% if a.acknowledged %}
-              <span class="badge badge-ok"><i class="fas fa-check"></i> Acquittée</span>
+              <span class="badge badge-ok"><i class="fas fa-check"></i> Acknowledged</span>
             {% else %}
-              <span class="badge badge-gray">Non lue</span>
+              <span class="badge badge-gray">Unread</span>
             {% endif %}
           </td>
           <td>
@@ -101,7 +101,7 @@
       {% else %}
         <tr><td colspan="6" style="text-align:center;padding:56px;color:var(--text-3)">
           <i class="fas fa-shield-halved" style="font-size:26px;display:block;margin-bottom:10px;opacity:.15;color:var(--green)"></i>
-          Aucune alerte ne correspond aux filtres
+          No alert matches the filters
         </td></tr>
       {% endfor %}
       </tbody>

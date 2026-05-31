@@ -1,50 +1,50 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Moteur d'Analyse</div><div class="pg-sub">Détection d'intrusions comportementales</div></div>
+  <div><div class="pg-title">Analysis Engine</div><div class="pg-sub">Behavioral intrusion detection</div></div>
 </div>
 <div class="g-stats g-6 mb-4 a2">
-  <div class="stat stat-blue"><div class="stat-lbl">Utilisateurs <i class="fas fa-users"></i></div><div class="stat-val">{{ stats.users }}</div></div>
-  <div class="stat stat-neutral"><div class="stat-lbl" style="color:var(--text-2)">Ressources <i class="fas fa-server" style="color:var(--text-3)"></i></div><div class="stat-val">{{ stats.resources }}</div></div>
-  <div class="stat stat-green"><div class="stat-lbl">Règles actives <i class="fas fa-lock"></i></div><div class="stat-val">{{ stats.policies }}</div></div>
-  <div class="stat stat-neutral"><div class="stat-lbl" style="color:var(--text-2)">Fichiers <i class="fas fa-folder" style="color:var(--text-3)"></i></div><div class="stat-val">{{ stats.files }}</div></div>
-  <div class="stat stat-purple"><div class="stat-lbl">Entrées <i class="fas fa-file-lines"></i></div><div class="stat-val">{{ stats.entries }}</div></div>
+  <div class="stat stat-blue"><div class="stat-lbl">Users <i class="fas fa-users"></i></div><div class="stat-val">{{ stats.users }}</div></div>
+  <div class="stat stat-neutral"><div class="stat-lbl" style="color:var(--text-2)">Resources <i class="fas fa-server" style="color:var(--text-3)"></i></div><div class="stat-val">{{ stats.resources }}</div></div>
+  <div class="stat stat-green"><div class="stat-lbl">Active rules <i class="fas fa-lock"></i></div><div class="stat-val">{{ stats.policies }}</div></div>
+  <div class="stat stat-neutral"><div class="stat-lbl" style="color:var(--text-2)">Files <i class="fas fa-folder" style="color:var(--text-3)"></i></div><div class="stat-val">{{ stats.files }}</div></div>
+  <div class="stat stat-purple"><div class="stat-lbl">Entries <i class="fas fa-file-lines"></i></div><div class="stat-val">{{ stats.entries }}</div></div>
   <div class="stat stat-red"><div class="stat-lbl">Intrusions <i class="fas fa-bug"></i></div><div class="stat-val">{{ stats.intrusions }}</div></div>
 </div>
 <div class="two-col" style="grid-template-columns:1fr 1fr">
   <div class="a3">
     <div class="card">
-      <div class="card-header"><i class="fas fa-play-circle" style="color:var(--blue)"></i><h6>Lancer l'Analyse</h6></div>
+      <div class="card-header"><i class="fas fa-play-circle" style="color:var(--blue)"></i><h6>Run Analysis</h6></div>
       <div class="card-body">
-        <p style="font-size:13px;color:var(--text-3);margin-bottom:18px">Configure les paramètres et lance la détection sur les fichiers chargés.</p>
+        <p style="font-size:13px;color:var(--text-3);margin-bottom:18px">Configure parameters and run detection on loaded files.</p>
         <form method="POST" action="/ids/run">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="g-stats g-2">
-            <div class="f-group"><label class="f-label">N — Entrées max / fichier</label><input type="number" name="N" class="f-input" value="100" min="1" required></div>
-            <div class="f-group"><label class="f-label">P — Nombre de fichiers</label><input type="number" name="P" class="f-input" value="{{ stats.files }}" min="1" required></div>
-            <div class="f-group"><label class="f-label">M — Taille table intrusions</label><input type="number" name="M" class="f-input" value="1000" min="1" required></div>
-            <div class="f-group"><label class="f-label">K — Règles max</label><input type="number" name="K" class="f-input" value="{{ stats.policies }}" min="1" required></div>
+            <div class="f-group"><label class="f-label">N — Max entries / file</label><input type="number" name="N" class="f-input" value="100" min="1" required></div>
+            <div class="f-group"><label class="f-label">P — Number of files</label><input type="number" name="P" class="f-input" value="{{ stats.files }}" min="1" required></div>
+            <div class="f-group"><label class="f-label">M — Intrusion table size</label><input type="number" name="M" class="f-input" value="1000" min="1" required></div>
+            <div class="f-group"><label class="f-label">K — Max rules</label><input type="number" name="K" class="f-input" value="{{ stats.policies }}" min="1" required></div>
           </div>
-          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-magnifying-glass"></i> Analyser</button>
+          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-magnifying-glass"></i> Analyze</button>
         </form>
       </div>
     </div>
   </div>
   <div class="a4">
     <div class="card">
-      <div class="card-header"><i class="fas fa-code-branch" style="color:var(--text-3)"></i><h6>Algorithme</h6></div>
+      <div class="card-header"><i class="fas fa-code-branch" style="color:var(--text-3)"></i><h6>Algorithm</h6></div>
       <div class="card-body">
         <ol style="color:var(--text-2);font-size:13px;line-height:2.2;padding-left:18px">
-          <li>Charger <strong style="color:var(--blue)">P</strong> fichiers d'événements</li>
-          <li>Créer une table d'intrusions de taille <strong style="color:var(--blue)">M</strong></li>
-          <li>Charger la politique (<strong style="color:var(--blue)">K</strong> règles max)</li>
-          <li>Parcourir <strong style="color:var(--blue)">N</strong> entrées par fichier</li>
-          <li>Vérifier : utilisateur autorisé ? date valide ?
-            <div style="margin-top:4px;padding-left:8px;font-size:12.5px;color:var(--red)">→ Violation = intrusion + alerte</div>
+          <li>Load <strong style="color:var(--blue)">P</strong> event files</li>
+          <li>Create an intrusion table of size <strong style="color:var(--blue)">M</strong></li>
+          <li>Load the policy (<strong style="color:var(--blue)">K</strong> rules max)</li>
+          <li>Iterate over <strong style="color:var(--blue)">N</strong> entries per file</li>
+          <li>Check: user allowed? date valid?
+            <div style="margin-top:4px;padding-left:8px;font-size:12.5px;color:var(--red)">→ Violation = intrusion + alert</div>
           </li>
         </ol>
         <div class="flex items gap-2 mt-3">
-          <a href="/ids/files"      class="btn btn-outline btn-sm"><i class="fas fa-folder"></i> Fichiers</a>
+          <a href="/ids/files"      class="btn btn-outline btn-sm"><i class="fas fa-folder"></i> Files</a>
           <a href="/ids/intrusions" class="btn btn-danger btn-sm"><i class="fas fa-bug"></i> Intrusions</a>
         </div>
       </div>

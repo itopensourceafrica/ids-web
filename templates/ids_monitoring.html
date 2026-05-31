@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Monitoring Temps Réel</div><div class="pg-sub">État des collecteurs actifs sur cette machine</div></div>
+  <div><div class="pg-title">Real-Time Monitoring</div><div class="pg-sub">State of active collectors on this machine</div></div>
   <div class="flex items gap-2">
-    <span id="live-ts" style="font-size:12px;color:var(--text-3)">En attente SSE...</span>
+    <span id="live-ts" style="font-size:12px;color:var(--text-3)">Waiting for SSE...</span>
     <span class="badge badge-green" style="animation:pulse-green 2s infinite"><i class="fas fa-circle" style="font-size:7px"></i> Live</span>
   </div>
 </div>
@@ -13,22 +13,22 @@
   <div class="card" style="border-color:{{ '#86efac' if sniffer.active else '#fca5a5' if sniffer.error else 'var(--border)' }}">
     <div class="card-header" style="background:{{ 'var(--green-s)' if sniffer.active else 'var(--red-s)' if sniffer.error else '#fafbfc' }}">
       <div style="width:8px;height:8px;border-radius:50%;background:{{ 'var(--green-b)' if sniffer.active else 'var(--red-b)' if sniffer.error else 'var(--text-3)' }};{% if sniffer.active %}animation:pulse-green 2s infinite;{% endif %}flex-shrink:0"></div>
-      <h6>Sniffer Réseau <span style="font-size:11px;font-weight:400;color:var(--text-3)">(scapy)</span></h6>
-      <span class="badge badge-{{ 'ok' if sniffer.active else 'red' if sniffer.error else 'gray' }}" style="margin-left:auto">{{ 'ACTIF' if sniffer.active else 'ERREUR' if sniffer.error else 'INACTIF' }}</span>
+      <h6>Network Sniffer <span style="font-size:11px;font-weight:400;color:var(--text-3)">(scapy)</span></h6>
+      <span class="badge badge-{{ 'ok' if sniffer.active else 'red' if sniffer.error else 'gray' }}" style="margin-left:auto">{{ 'ACTIVE' if sniffer.active else 'ERROR' if sniffer.error else 'INACTIVE' }}</span>
     </div>
     <div class="card-body">
       {% if sniffer.active %}
         <div class="g-stats g-4 mb-3">
-          <div class="stat stat-green"><div class="stat-lbl">Paquets <i class="fas fa-wave-square"></i></div><div id="live-sniffer-packets" class="stat-val" style="font-size:24px">{{ sniffer.packets_captured }}</div></div>
-          <div class="stat stat-blue"><div class="stat-lbl">Règles NIDS <i class="fas fa-shield-halved"></i></div><div class="stat-val" style="font-size:24px">{{ nids.rules }}</div></div>
+          <div class="stat stat-green"><div class="stat-lbl">Packets <i class="fas fa-wave-square"></i></div><div id="live-sniffer-packets" class="stat-val" style="font-size:24px">{{ sniffer.packets_captured }}</div></div>
+          <div class="stat stat-blue"><div class="stat-lbl">NIDS rules <i class="fas fa-shield-halved"></i></div><div class="stat-val" style="font-size:24px">{{ nids.rules }}</div></div>
           <div class="stat stat-amber"><div class="stat-lbl">Signatures <i class="fas fa-signature"></i></div><div class="stat-val" style="font-size:24px">{{ nids.signatures }}</div></div>
-          <div class="stat"><div class="stat-lbl" style="color:var(--text-2)">Démarré</div><div style="font-size:12px;color:var(--text-3);margin-top:6px">{{ sniffer.started_at.strftime('%H:%M') if sniffer.started_at else '—' }}</div></div>
+          <div class="stat"><div class="stat-lbl" style="color:var(--text-2)">Started</div><div style="font-size:12px;color:var(--text-3);margin-top:6px">{{ sniffer.started_at.strftime('%H:%M') if sniffer.started_at else '—' }}</div></div>
         </div>
         <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">
-          Whitelist : {{ nids.whitelisted }} entrée(s) —
-          <a href="/ids/settings#nids" style="color:var(--blue)">Éditer nids_rules.conf →</a>
+          Whitelist: {{ nids.whitelisted }} entry(ies) —
+          <a href="/ids/settings#nids" style="color:var(--blue)">Edit nids_rules.conf →</a>
         </div>
-        <p style="font-size:13px;color:var(--text-3)">Détections : port scan · ports dangereux · SNI TLS · signatures payload. Rechargement automatique si nids_rules.conf change.</p>
+        <p style="font-size:13px;color:var(--text-3)">Detections: port scan · dangerous ports · TLS SNI · payload signatures. Auto-reload if nids_rules.conf changes.</p>
       {% elif sniffer.error %}
         <div style="padding:12px;background:var(--red-s);border:1px solid #fca5a5;border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--red)"><i class="fas fa-triangle-exclamation"></i> {{ sniffer.error }}</div>
         <div style="background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:14px">
@@ -37,7 +37,7 @@
           <code style="display:block">pip install scapy</code>
         </div>
       {% else %}
-        <p style="color:var(--text-3);font-size:13px">Le sniffer n'a pas démarré.</p>
+        <p style="color:var(--text-3);font-size:13px">The sniffer did not start.</p>
       {% endif %}
     </div>
   </div>
@@ -47,17 +47,17 @@
     <div class="card-header" style="background:{{ 'var(--green-s)' if auditd.active else 'var(--red-s)' if auditd.error else '#fafbfc' }}">
       <div style="width:8px;height:8px;border-radius:50%;background:{{ 'var(--green-b)' if auditd.active else 'var(--red-b)' if auditd.error else 'var(--text-3)' }};{% if auditd.active %}animation:pulse-green 2s infinite;{% endif %}flex-shrink:0"></div>
       <h6>Auditd <span style="font-size:11px;font-weight:400;color:var(--text-3)">(audit.log)</span></h6>
-      <span class="badge badge-{{ 'ok' if auditd.active else 'red' if auditd.error else 'gray' }}" style="margin-left:auto">{{ 'ACTIF' if auditd.active else 'ERREUR' if auditd.error else 'INACTIF' }}</span>
+      <span class="badge badge-{{ 'ok' if auditd.active else 'red' if auditd.error else 'gray' }}" style="margin-left:auto">{{ 'ACTIVE' if auditd.active else 'ERROR' if auditd.error else 'INACTIVE' }}</span>
     </div>
     <div class="card-body">
       {% if auditd.active %}
-        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">Fichier : <code>/var/log/audit/audit.log</code></div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">File: <code>/var/log/audit/audit.log</code></div>
         <div class="g-stats g-3 mb-3">
-          <div class="stat stat-purple"><div class="stat-lbl">Événements parsés <i class="fas fa-file-lines"></i></div><div class="stat-val" style="font-size:24px">{{ auditd.events_parsed }}</div></div>
-          <div class="stat stat-green"><div class="stat-lbl">Règles chargées <i class="fas fa-shield-halved"></i></div><div class="stat-val" style="font-size:24px">{{ auditd.rules_loaded }}</div></div>
-          <div class="stat"><div class="stat-lbl" style="color:var(--text-2)">Démarré</div><div style="font-size:12px;color:var(--text-3);margin-top:6px">{{ auditd.started_at.strftime('%H:%M') if auditd.started_at else '—' }}</div></div>
+          <div class="stat stat-purple"><div class="stat-lbl">Parsed events <i class="fas fa-file-lines"></i></div><div class="stat-val" style="font-size:24px">{{ auditd.events_parsed }}</div></div>
+          <div class="stat stat-green"><div class="stat-lbl">Loaded rules <i class="fas fa-shield-halved"></i></div><div class="stat-val" style="font-size:24px">{{ auditd.rules_loaded }}</div></div>
+          <div class="stat"><div class="stat-lbl" style="color:var(--text-2)">Started</div><div style="font-size:12px;color:var(--text-3);margin-top:6px">{{ auditd.started_at.strftime('%H:%M') if auditd.started_at else '—' }}</div></div>
         </div>
-        <p style="font-size:13px;color:var(--text-3)">Surveille : sudo · auth · users · fichiers critiques · connexions réseau.</p>
+        <p style="font-size:13px;color:var(--text-3)">Watches: sudo · auth · users · critical files · network connections.</p>
       {% elif auditd.error %}
         <div style="padding:12px;background:var(--red-s);border:1px solid #fca5a5;border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--red)"><i class="fas fa-triangle-exclamation"></i> {{ auditd.error }}</div>
         <div style="background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:14px">
@@ -66,7 +66,7 @@
           <code style="display:block">sudo python3 app.py</code>
         </div>
       {% else %}
-        <p style="color:var(--text-3);font-size:13px">auditd non démarré.</p>
+        <p style="color:var(--text-3);font-size:13px">auditd not started.</p>
       {% endif %}
     </div>
   </div>
@@ -75,18 +75,18 @@
   <div class="card" style="border-color:{{ '#86efac' if logwatcher.active else '#fca5a5' if logwatcher.error else 'var(--border)' }}">
     <div class="card-header" style="background:{{ 'var(--green-s)' if logwatcher.active else 'var(--red-s)' if logwatcher.error else '#fafbfc' }}">
       <div style="width:8px;height:8px;border-radius:50%;background:{{ 'var(--green-b)' if logwatcher.active else 'var(--red-b)' if logwatcher.error else 'var(--text-3)' }};{% if logwatcher.active %}animation:pulse-green 2s infinite;{% endif %}flex-shrink:0"></div>
-      <h6>Lecteur de Logs <span style="font-size:11px;font-weight:400;color:var(--text-3)">(auth.log)</span></h6>
-      <span class="badge badge-{{ 'ok' if logwatcher.active else 'red' if logwatcher.error else 'gray' }}" style="margin-left:auto">{{ 'ACTIF' if logwatcher.active else 'ERREUR' if logwatcher.error else 'INACTIF' }}</span>
+      <h6>Log Reader <span style="font-size:11px;font-weight:400;color:var(--text-3)">(auth.log)</span></h6>
+      <span class="badge badge-{{ 'ok' if logwatcher.active else 'red' if logwatcher.error else 'gray' }}" style="margin-left:auto">{{ 'ACTIVE' if logwatcher.active else 'ERROR' if logwatcher.error else 'INACTIVE' }}</span>
     </div>
     <div class="card-body">
       {% if logwatcher.active %}
-        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">Fichier : <code>{{ logwatcher.log_file }}</code></div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">File: <code>{{ logwatcher.log_file }}</code></div>
         <div class="g-stats g-3 mb-3">
-          <div class="stat stat-blue"><div class="stat-lbl">Lignes lues <i class="fas fa-align-left"></i></div><div id="live-log-lines" class="stat-val" style="font-size:24px">{{ logwatcher.lines_processed }}</div></div>
-          <div class="stat stat-green"><div class="stat-lbl">Entrées créées <i class="fas fa-plus-circle"></i></div><div id="live-log-entries" class="stat-val" style="font-size:24px">{{ logwatcher.entries_created }}</div></div>
-          <div class="stat"><div class="stat-lbl" style="color:var(--text-2)">Démarré</div><div style="font-size:12px;color:var(--text-3);margin-top:6px">{{ logwatcher.started_at.strftime('%H:%M') if logwatcher.started_at else '—' }}</div></div>
+          <div class="stat stat-blue"><div class="stat-lbl">Lines read <i class="fas fa-align-left"></i></div><div id="live-log-lines" class="stat-val" style="font-size:24px">{{ logwatcher.lines_processed }}</div></div>
+          <div class="stat stat-green"><div class="stat-lbl">Entries created <i class="fas fa-plus-circle"></i></div><div id="live-log-entries" class="stat-val" style="font-size:24px">{{ logwatcher.entries_created }}</div></div>
+          <div class="stat"><div class="stat-lbl" style="color:var(--text-2)">Started</div><div style="font-size:12px;color:var(--text-3);margin-top:6px">{{ logwatcher.started_at.strftime('%H:%M') if logwatcher.started_at else '—' }}</div></div>
         </div>
-        <p style="font-size:13px;color:var(--text-3)">Vérification toutes les 3 secondes.</p>
+        <p style="font-size:13px;color:var(--text-3)">Polling every 3 seconds.</p>
       {% elif logwatcher.error %}
         <div style="padding:12px;background:var(--red-s);border:1px solid #fca5a5;border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--red)"><i class="fas fa-triangle-exclamation"></i> {{ logwatcher.error }}</div>
         <div style="background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:14px">
@@ -95,7 +95,7 @@
           <code style="display:block">sudo python3 app.py</code>
         </div>
       {% else %}
-        <p style="color:var(--text-3);font-size:13px">Le lecteur de logs n'a pas démarré.</p>
+        <p style="color:var(--text-3);font-size:13px">The log reader did not start.</p>
       {% endif %}
     </div>
   </div>
@@ -104,35 +104,35 @@
 <!-- Capabilities -->
 <div class="two-col mb-4 a3" style="grid-template-columns:1fr 1fr">
   <div class="card">
-    <div class="card-header"><i class="fas fa-wifi" style="color:var(--green)"></i><h6>Sniffer — ce qu'il détecte</h6></div>
+    <div class="card-header"><i class="fas fa-wifi" style="color:var(--green)"></i><h6>Sniffer — what it detects</h6></div>
     <div class="card-body">
       <ul style="color:var(--text-2);font-size:13px;line-height:2.1;padding-left:18px">
-        <li>Ports suspects — SMB <code>445</code>, RDP <code>3389</code>, MySQL <code>3306</code></li>
-        <li>Payloads contenant des mots-clés d'injection SQL</li>
-        <li>Tout paquet IP sur toutes les interfaces réseau</li>
-        <li>Alerte générée en temps réel à chaque match</li>
+        <li>Suspicious ports — SMB <code>445</code>, RDP <code>3389</code>, MySQL <code>3306</code></li>
+        <li>Payloads containing SQL injection keywords</li>
+        <li>Any IP packet on every network interface</li>
+        <li>Alert generated in real time on every match</li>
       </ul>
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><i class="fas fa-file-lines" style="color:var(--blue)"></i><h6>Logs — ce qu'il détecte</h6></div>
+    <div class="card-header"><i class="fas fa-file-lines" style="color:var(--blue)"></i><h6>Logs — what it detects</h6></div>
     <div class="card-body">
       <ul style="color:var(--text-2);font-size:13px;line-height:2.1;padding-left:18px">
-        <li>Connexions SSH réussies et échouées</li>
-        <li>Commandes <code>sudo</code> — qui, quoi, quelle ressource</li>
-        <li>Changements d'utilisateur <code>su</code> et sessions PAM</li>
-        <li>Comparaison immédiate avec la politique d'accès</li>
+        <li>Successful and failed SSH connections</li>
+        <li><code>sudo</code> commands — who, what, which resource</li>
+        <li>User changes <code>su</code> and PAM sessions</li>
+        <li>Immediate comparison against the access policy</li>
       </ul>
     </div>
   </div>
 </div>
 
 <!-- Recent intrusions -->
-<div class="section-lbl a4">Dernières intrusions détectées</div>
+<div class="section-lbl a4">Latest detected intrusions</div>
 <div class="card a4">
   <div class="tbl-wrap">
     <table class="tbl">
-      <thead><tr><th>Utilisateur</th><th>Ressource</th><th>Tâche</th><th>Violation</th><th>Détectée</th></tr></thead>
+      <thead><tr><th>User</th><th>Resource</th><th>Task</th><th>Violation</th><th>Detected</th></tr></thead>
       <tbody>
       {% for i in recent_intrusions %}
         <tr>
@@ -148,7 +148,7 @@
           <td style="color:var(--text-3);font-size:12px">{{ i.detected_at.strftime('%d/%m %H:%M:%S') }}</td>
         </tr>
       {% else %}
-        <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-3)">Aucune intrusion détectée.</td></tr>
+        <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-3)">No intrusion detected.</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -175,7 +175,7 @@ es.onmessage = function(e) {
 
   // Dernière mise à jour
   const ts = document.getElementById('live-ts');
-  if (ts) ts.textContent = 'Mis à jour à ' + d.ts;
+  if (ts) ts.textContent = 'Updated at ' + d.ts;
 
   // Intrusions récentes : rechargement soft du tableau si nouveaux
   const prev = parseInt(document.getElementById('live-intrusion-count')?.textContent || '0');
@@ -192,7 +192,7 @@ es.onmessage = function(e) {
 
 es.onerror = function() {
   const ts = document.getElementById('live-ts');
-  if (ts) ts.textContent = 'Connexion SSE perdue — tentative de reconnexion...';
+  if (ts) ts.textContent = 'SSE connection lost — reconnecting...';
 };
 </script>
 {% endblock %}

@@ -2,7 +2,7 @@
 {% block content %}
 <div class="pg-head a1">
   <div>
-    <div class="pg-title">Table des Intrusions</div>
+    <div class="pg-title">Intrusion Table</div>
     <div class="pg-sub">{{ total }} intrusion(s) — page {{ page }}/{{ pages or 1 }}</div>
   </div>
   <div class="flex items gap-2">
@@ -10,8 +10,8 @@
       <i class="fas fa-file-csv"></i> Export CSV
     </a>
     {% if total > 0 %}
-      <a href="/ids/intrusions/reset" onclick="return confirm('Réinitialiser ?')" class="btn btn-danger btn-sm">
-        <i class="fas fa-rotate-left"></i> Réinitialiser
+      <a href="/ids/intrusions/reset" onclick="return confirm('Reset?')" class="btn btn-danger btn-sm">
+        <i class="fas fa-rotate-left"></i> Reset
       </a>
     {% endif %}
   </div>
@@ -21,26 +21,26 @@
 <div class="card a2" style="margin-bottom:16px; padding:14px 18px">
   <form method="GET" action="/ids/intrusions" style="display:grid; grid-template-columns: 1fr 140px auto; gap:10px; align-items:end">
     <div class="f-group" style="margin:0">
-      <label class="f-label" style="font-size:11px">Recherche (user, resource, type)</label>
+      <label class="f-label" style="font-size:11px">Search (user, resource, type)</label>
       <input type="text" name="q" class="f-input" placeholder="alice, ssh_server, brute_force..." value="{{ filter_q }}">
     </div>
     <div class="f-group" style="margin:0">
-      <label class="f-label" style="font-size:11px">Période</label>
+      <label class="f-label" style="font-size:11px">Period</label>
       <select name="days" class="f-select">
-        <option value="">Toutes</option>
+        <option value="">All</option>
         <option value="1"  {% if filter_days == '1' %}selected{% endif %}>24h</option>
-        <option value="7"  {% if filter_days == '7' %}selected{% endif %}>7 jours</option>
-        <option value="30" {% if filter_days == '30' %}selected{% endif %}>30 jours</option>
+        <option value="7"  {% if filter_days == '7' %}selected{% endif %}>7 days</option>
+        <option value="30" {% if filter_days == '30' %}selected{% endif %}>30 days</option>
       </select>
     </div>
-    <button type="submit" class="btn btn-primary btn-sm" style="height:38px"><i class="fas fa-filter"></i> Filtrer</button>
+    <button type="submit" class="btn btn-primary btn-sm" style="height:38px"><i class="fas fa-filter"></i> Filter</button>
   </form>
 </div>
 
 <div class="card a3">
   <div class="tbl-wrap">
     <table class="tbl">
-      <thead><tr><th>#</th><th>Utilisateur</th><th>Ressource</th><th>Tâche</th><th>Date d'exécution</th><th>Type de violation</th><th>Détectée le</th></tr></thead>
+      <thead><tr><th>#</th><th>User</th><th>Resource</th><th>Task</th><th>Execution date</th><th>Violation type</th><th>Detected at</th></tr></thead>
       <tbody>
       {% for i in intrusions %}
         <tr>
@@ -70,8 +70,8 @@
         <tr>
           <td colspan="7" style="text-align:center;padding:64px;color:var(--text-3)">
             <i class="fas fa-shield-halved" style="font-size:30px;display:block;margin-bottom:12px;opacity:.15;color:var(--blue)"></i>
-            <div style="font-size:14px;margin-bottom:6px">Aucune intrusion ne correspond aux filtres</div>
-            <div style="font-size:12.5px">Lancez l'analyse depuis le <a href="/ids" style="color:var(--blue);text-decoration:none;font-weight:600">Moteur d'Analyse</a>.</div>
+            <div style="font-size:14px;margin-bottom:6px">No intrusion matches the filters</div>
+            <div style="font-size:12.5px">Run analysis from the <a href="/ids" style="color:var(--blue);text-decoration:none;font-weight:600">Analysis Engine</a>.</div>
           </td>
         </tr>
       {% endfor %}

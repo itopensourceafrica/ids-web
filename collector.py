@@ -109,11 +109,11 @@ class NetworkSniffer:
         try:
             import scapy.all  # noqa
         except ImportError:
-            sniffer_status['error'] = "scapy non installé — lancez : pip install scapy"
+            sniffer_status['error'] = "scapy not installed — run: pip install scapy"
             return
 
         if os.geteuid() != 0:
-            sniffer_status['error'] = "Droits root requis — relancez avec : sudo python3 app.py"
+            sniffer_status['error'] = "Root privileges required — relaunch with: sudo python3 app.py"
             return
 
         sniffer_status.update({'active': True, 'started_at': datetime.utcnow(), 'error': None})

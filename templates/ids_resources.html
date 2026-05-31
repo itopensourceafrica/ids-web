@@ -1,19 +1,19 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="pg-head a1">
-  <div><div class="pg-title">Ressources</div><div class="pg-sub">Actifs systèmes protégés</div></div>
-  <span class="badge badge-blue">{{ resources|length }} ressource(s)</span>
+  <div><div class="pg-title">Resources</div><div class="pg-sub">Protected system assets</div></div>
+  <span class="badge badge-blue">{{ resources|length }} resource(s)</span>
 </div>
 <div class="two-col" style="grid-template-columns:320px 1fr">
   <div class="a2">
     <div class="card">
-      <div class="card-header"><h6>Ajouter une ressource</h6></div>
+      <div class="card-header"><h6>Add resource</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/resources/add">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <div class="f-group"><label class="f-label">Nom</label><input type="text" name="name" class="f-input" placeholder="ex: database" required></div>
-          <div class="f-group"><label class="f-label">Description</label><input type="text" name="description" class="f-input" placeholder="Optionnel"></div>
-          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Ajouter</button>
+          <div class="f-group"><label class="f-label">Name</label><input type="text" name="name" class="f-input" placeholder="e.g.: database" required></div>
+          <div class="f-group"><label class="f-label">Description</label><input type="text" name="description" class="f-input" placeholder="Optional"></div>
+          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Add</button>
         </form>
       </div>
     </div>
@@ -22,7 +22,7 @@
     <div class="card">
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Ressource</th><th>Description</th><th>Créée le</th><th>Action</th></tr></thead>
+          <thead><tr><th>Resource</th><th>Description</th><th>Created</th><th>Action</th></tr></thead>
           <tbody>
           {% for r in resources %}
             <tr>
@@ -34,10 +34,10 @@
               </td>
               <td style="color:var(--text-2);font-size:13px">{{ r.description or '—' }}</td>
               <td style="color:var(--text-3);font-size:12.5px">{{ r.created_at.strftime('%d/%m/%Y') }}</td>
-              <td><a href="/ids/resources/delete/{{ r.id }}" onclick="return confirm('Supprimer ?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a></td>
+              <td><a href="/ids/resources/delete/{{ r.id }}" onclick="return confirm('Delete?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a></td>
             </tr>
           {% else %}
-            <tr><td colspan="4" style="text-align:center;padding:48px;color:var(--text-3)">Aucune ressource</td></tr>
+            <tr><td colspan="4" style="text-align:center;padding:48px;color:var(--text-3)">No resources</td></tr>
           {% endfor %}
           </tbody>
         </table>

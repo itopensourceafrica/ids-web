@@ -2,26 +2,26 @@
 {% block content %}
 <div class="pg-head a1">
   <div>
-    <div class="pg-title">Politique de Sécurité</div>
+    <div class="pg-title">Security Policy</div>
     <div class="pg-sub">
       {% if rule_type == 'nids' %}
-        Règles réseau — IP × port × protocole × flags TCP
+        Network rules — IP × port × protocol × TCP flags
       {% else %}
-        Autorisations — utilisateur × ressource × tâche × plage de dates
+        Permissions — user × resource × task × date range
       {% endif %}
     </div>
   </div>
   <div class="flex items gap-2">
     {% if rule_type == 'nids' %}
-      <span class="badge badge-green">{{ nids_rules|selectattr('active')|list|length }} active(s)</span>
+      <span class="badge badge-green">{{ nids_rules|selectattr('active')|list|length }} active</span>
     {% else %}
-      <span class="badge badge-green">{{ policies|selectattr('active')|list|length }} active(s)</span>
-      <a href="/ids/policy/export" class="btn btn-outline btn-sm" title="Exporter vers policy.conf"><i class="fas fa-file-export"></i> Exporter</a>
-      <a href="/ids/policy/download" class="btn btn-outline btn-sm" title="Télécharger policy.conf"><i class="fas fa-download"></i> Télécharger</a>
+      <span class="badge badge-green">{{ policies|selectattr('active')|list|length }} active</span>
+      <a href="/ids/policy/export" class="btn btn-outline btn-sm" title="Export to policy.conf"><i class="fas fa-file-export"></i> Export</a>
+      <a href="/ids/policy/download" class="btn btn-outline btn-sm" title="Download policy.conf"><i class="fas fa-download"></i> Download</a>
       <form method="POST" action="/ids/policy/import" style="display:inline">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="replace" value="1">
-        <button type="submit" class="btn btn-outline btn-sm" title="Importer depuis policy.conf"><i class="fas fa-file-import"></i> Importer</button>
+        <button type="submit" class="btn btn-outline btn-sm" title="Import from policy.conf"><i class="fas fa-file-import"></i> Import</button>
       </form>
     {% endif %}
   </div>
@@ -30,18 +30,18 @@
 <!-- Toggle HIDS / DETECT / NIDS -->
 <div class="card a1" style="margin-bottom:16px; padding:14px 18px">
   <div class="flex items gap-2" style="font-size:13.5px">
-    <span style="color:var(--text-3); margin-right:6px">Type de règle :</span>
+    <span style="color:var(--text-3); margin-right:6px">Rule type:</span>
     <a href="/ids/policy?type=hids"
        class="btn btn-{{ 'primary' if rule_type == 'hids' else 'outline' }} btn-sm">
-      <i class="fas fa-user-shield"></i> HIDS — Accès utilisateurs
+      <i class="fas fa-user-shield"></i> HIDS — User access
     </a>
     <a href="/ids/policy?type=detect"
        class="btn btn-{{ 'primary' if rule_type == 'detect' else 'outline' }} btn-sm">
-      <i class="fas fa-bullseye"></i> Patterns Detect — Brute force & seuils
+      <i class="fas fa-bullseye"></i> Detect Patterns — Brute force & thresholds
     </a>
     <a href="/ids/policy?type=nids"
        class="btn btn-{{ 'primary' if rule_type == 'nids' else 'outline' }} btn-sm">
-      <i class="fas fa-network-wired"></i> NIDS — Règles réseau
+      <i class="fas fa-network-wired"></i> NIDS — Network rules
     </a>
   </div>
 </div>
@@ -49,7 +49,7 @@
 {% if rule_type == 'nids' %}
 {# ═══════════ NIDS RULES ═══════════ #}
 <div class="card a2" style="margin-bottom:16px">
-  <div class="card-header"><h6>Ajouter une règle NIDS</h6></div>
+  <div class="card-header"><h6>Add NIDS rule</h6></div>
   <div class="card-body">
     <form method="POST" action="/ids/policy/nids/add">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -106,7 +106,7 @@
       </div>
       <div style="display:grid; grid-template-columns: 1fr auto; gap:10px; margin-top:12px">
         <div class="f-group" style="margin:0">
-          <label class="f-label" style="font-size:11px">Sévérité</label>
+          <label class="f-label" style="font-size:11px">Severity</label>
           <select name="severity" class="f-select">
             <option value="low">Low</option>
             <option value="medium" selected>Medium</option>
@@ -115,7 +115,7 @@
           </select>
         </div>
         <div style="align-self:end">
-          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Ajouter règle NIDS</button>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add NIDS rule</button>
         </div>
       </div>
     </form>
@@ -129,7 +129,7 @@
         <tr>
           <th>#</th><th>Name</th><th>Ver</th><th>Proto</th>
           <th>Src IP</th><th>Dst IP</th><th>Src port</th><th>Dst port</th>
-          <th>Flags</th><th>Action</th><th>Sev</th><th>État</th><th></th>
+          <th>Flags</th><th>Action</th><th>Sev</th><th>Status</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -158,13 +158,13 @@
           <td>
             <div class="flex items gap-1">
               <a href="/ids/policy/nids/toggle/{{ r.id }}" class="btn btn-outline btn-sm"><i class="fas fa-power-off"></i></a>
-              <a href="/ids/policy/nids/delete/{{ r.id }}" onclick="return confirm('Supprimer ?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a>
+              <a href="/ids/policy/nids/delete/{{ r.id }}" onclick="return confirm('Delete?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a>
             </div>
           </td>
         </tr>
       {% else %}
         <tr><td colspan="13" style="text-align:center;padding:48px;color:var(--text-3)">
-          Aucune règle NIDS. Ajoutez-en une ci-dessus.
+          No NIDS rule. Add one above.
         </td></tr>
       {% endfor %}
       </tbody>
@@ -179,34 +179,34 @@
     <div class="card">
       <div class="card-header">
         <i class="fas fa-bullseye" style="color:var(--red)"></i>
-        <h6>Ajouter un pattern de détection</h6>
+        <h6>Add detection pattern</h6>
       </div>
       <div class="card-body">
         <p style="font-size:12px; color:var(--text-3); margin-bottom:12px">
-          Détecte un seuil d'événements dans une fenêtre temporelle.
-          Ex : <strong>5 failed_login sur ssh_server en 5s</strong> →
-          alerte <code>BRUTE_FORCE_SSH</code>.
+          Detects an event threshold within a time window.
+          E.g.: <strong>5 failed_login on ssh_server in 5s</strong> →
+          <code>BRUTE_FORCE_SSH</code> alert.
         </p>
         <form method="POST" action="/ids/policy/detect/add">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
           <div class="f-group">
-            <label class="f-label">Nom du pattern</label>
+            <label class="f-label">Pattern name</label>
             <input type="text" name="pattern_name" class="f-input"
                    placeholder="BRUTE_FORCE_SSH" required
                    pattern="[A-Z0-9_]+" style="font-family:monospace; text-transform:uppercase">
           </div>
 
           <div class="f-group">
-            <label class="f-label">Ressource ciblée</label>
+            <label class="f-label">Target resource</label>
             <select name="resource_id" class="f-select" required>
-              <option value="">— Choisir —</option>
+              <option value="">— Choose —</option>
               {% for r in resources %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
             </select>
           </div>
 
           <div class="f-group">
-            <label class="f-label">Tâche surveillée</label>
+            <label class="f-label">Watched task</label>
             <select name="task" class="f-select" required>
               <option value="failed_login">failed_login</option>
               <option value="login">login</option>
@@ -215,25 +215,25 @@
               <option value="write">write</option>
               <option value="delete">delete</option>
               <option value="connect">connect</option>
-              <option value="*">* (toutes les tâches)</option>
+              <option value="*">* (all tasks)</option>
             </select>
           </div>
 
           <div style="display:flex; gap:8px">
             <div class="f-group" style="flex:1">
-              <label class="f-label">Seuil</label>
+              <label class="f-label">Threshold</label>
               <input type="number" name="threshold" class="f-input"
                      value="5" min="1" max="1000" required>
             </div>
             <div class="f-group" style="flex:1">
-              <label class="f-label">Fenêtre (sec)</label>
+              <label class="f-label">Window (sec)</label>
               <input type="number" name="window_sec" class="f-input"
                      value="5" min="1" max="3600" required>
             </div>
           </div>
 
           <div class="f-group">
-            <label class="f-label">Sévérité</label>
+            <label class="f-label">Severity</label>
             <select name="severity" class="f-select" required>
               <option value="critical">Critical</option>
               <option value="high" selected>High</option>
@@ -243,7 +243,7 @@
           </div>
 
           <button type="submit" class="btn btn-primary btn-full mt-2">
-            <i class="fas fa-plus"></i> Ajouter le pattern
+            <i class="fas fa-plus"></i> Add pattern
           </button>
         </form>
       </div>
@@ -252,16 +252,16 @@
   <div class="a3">
     <div class="card">
       <div class="card-header">
-        <h6>Patterns actifs ({{ detect_patterns|selectattr('active')|list|length }} / {{ detect_patterns|length }})</h6>
+        <h6>Active patterns ({{ detect_patterns|selectattr('active')|list|length }} / {{ detect_patterns|length }})</h6>
       </div>
       <div class="tbl-wrap">
         <table class="tbl">
           <thead>
             <tr>
-              <th>Nom</th><th>Ressource</th><th>Tâche</th>
-              <th style="text-align:center">Seuil</th>
-              <th style="text-align:center">Fenêtre</th>
-              <th>Sévérité</th><th>Statut</th><th>Actions</th>
+              <th>Name</th><th>Resource</th><th>Task</th>
+              <th style="text-align:center">Threshold</th>
+              <th style="text-align:center">Window</th>
+              <th>Severity</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -283,15 +283,15 @@
               </td>
               <td>
                 <span class="badge badge-{{ 'ok' if p.active else 'gray' }}">
-                  {{ 'Actif' if p.active else 'Inactif' }}
+                  {{ 'Active' if p.active else 'Inactive' }}
                 </span>
               </td>
               <td>
                 <div class="flex items gap-1">
-                  <a href="/ids/policy/toggle/{{ p.id }}" class="btn btn-outline btn-sm" title="Activer/Désactiver">
+                  <a href="/ids/policy/toggle/{{ p.id }}" class="btn btn-outline btn-sm" title="Enable/Disable">
                     <i class="fas fa-power-off"></i>
                   </a>
-                  <a href="/ids/policy/delete/{{ p.id }}" onclick="return confirm('Supprimer le pattern {{ p.pattern_name }} ?')" class="btn btn-danger btn-sm">
+                  <a href="/ids/policy/delete/{{ p.id }}" onclick="return confirm('Delete pattern {{ p.pattern_name }}?')" class="btn btn-danger btn-sm">
                     <i class="fas fa-trash"></i>
                   </a>
                 </div>
@@ -299,7 +299,7 @@
             </tr>
           {% else %}
             <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-3)">
-              Aucun pattern de détection. Créez-en un avec le formulaire à gauche.
+              No detection pattern. Create one using the form on the left.
             </td></tr>
           {% endfor %}
           </tbody>
@@ -314,33 +314,33 @@
 <div class="two-col" style="grid-template-columns:340px 1fr">
   <div class="a2">
     <div class="card">
-      <div class="card-header"><h6>Ajouter une règle HIDS</h6></div>
+      <div class="card-header"><h6>Add HIDS rule</h6></div>
       <div class="card-body">
         <form method="POST" action="/ids/policy/add">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <div class="f-group">
-            <label class="f-label">Utilisateur</label>
+            <label class="f-label">User</label>
             <select name="user_id" class="f-select" required>
-              <option value="">— Choisir —</option>
+              <option value="">— Choose —</option>
               {% for u in users %}<option value="{{ u.id }}">{{ u.username }} ({{ u.role }})</option>{% endfor %}
             </select>
           </div>
           <div class="f-group">
-            <label class="f-label">Ressource</label>
+            <label class="f-label">Resource</label>
             <select name="resource_id" class="f-select" required>
-              <option value="">— Choisir —</option>
+              <option value="">— Choose —</option>
               {% for r in resources %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
             </select>
           </div>
           <div class="f-group">
             <label class="f-label">Action</label>
             <select name="policy_type" class="f-select" required>
-              <option value="allow">Allow — autoriser</option>
-              <option value="deny">Deny — refuser</option>
+              <option value="allow">Allow — permit</option>
+              <option value="deny">Deny — refuse</option>
             </select>
           </div>
           <div class="f-group">
-            <label class="f-label">Tâche</label>
+            <label class="f-label">Task</label>
             <select name="task" class="f-select" required>
               <option value="read">read</option><option value="write">write</option>
               <option value="delete">delete</option><option value="execute">execute</option>
@@ -349,19 +349,19 @@
               <option value="network_access">network_access</option>
             </select>
           </div>
-          <div class="f-group"><label class="f-label">Date de début</label>
+          <div class="f-group"><label class="f-label">Start date</label>
             <div style="display:flex;gap:6px">
               <input type="date" name="start_date" class="f-input" value="2026-01-01" required style="flex:2">
               <input type="time" name="start_time" class="f-input" value="00:00" style="flex:1">
             </div>
           </div>
-          <div class="f-group"><label class="f-label">Date de fin</label>
+          <div class="f-group"><label class="f-label">End date</label>
             <div style="display:flex;gap:6px">
               <input type="date" name="end_date" class="f-input" value="2026-12-31" required style="flex:2">
               <input type="time" name="end_time" class="f-input" value="00:00" style="flex:1">
             </div>
           </div>
-          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Ajouter</button>
+          <button type="submit" class="btn btn-primary btn-full mt-2"><i class="fas fa-plus"></i> Add</button>
         </form>
       </div>
     </div>
@@ -370,7 +370,7 @@
     <div class="card">
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Utilisateur</th><th>Ressource</th><th>Action</th><th>Tâche</th><th>Début</th><th>Fin</th><th>Statut</th><th>Actions</th></tr></thead>
+          <thead><tr><th>User</th><th>Resource</th><th>Action</th><th>Task</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
           {% for p in policies %}
             <tr style="{{ 'opacity:.5' if not p.active else '' }}">
@@ -385,16 +385,16 @@
               <td><span class="badge badge-gray">{{ p.task }}</span></td>
               <td style="color:var(--text-3);font-size:12px">{{ p.start_date.strftime('%d/%m/%Y') }}</td>
               <td style="color:var(--text-3);font-size:12px">{{ p.end_date.strftime('%d/%m/%Y') }}</td>
-              <td><span class="badge badge-{{ 'ok' if p.active else 'gray' }}">{{ 'Actif' if p.active else 'Inactif' }}</span></td>
+              <td><span class="badge badge-{{ 'ok' if p.active else 'gray' }}">{{ 'Active' if p.active else 'Inactive' }}</span></td>
               <td>
                 <div class="flex items gap-1">
                   <a href="/ids/policy/toggle/{{ p.id }}" class="btn btn-outline btn-sm"><i class="fas fa-power-off"></i></a>
-                  <a href="/ids/policy/delete/{{ p.id }}" onclick="return confirm('Supprimer ?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a>
+                  <a href="/ids/policy/delete/{{ p.id }}" onclick="return confirm('Delete?')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></a>
                 </div>
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-3)">Aucune règle HIDS</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:48px;color:var(--text-3)">No HIDS rule</td></tr>
           {% endfor %}
           </tbody>
         </table>

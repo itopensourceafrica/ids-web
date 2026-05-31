@@ -284,8 +284,8 @@ class LinuxLogCollector(threading.Thread):
     def run(self):
         self._log_file = self._find_log()
         if not self._log_file:
-            logwatcher_status['error'] = 'auth.log inaccessible — lancez avec sudo'
-            status['errors'].append('auth.log inaccessible — lancez avec sudo')
+            logwatcher_status['error'] = 'auth.log inaccessible — run with sudo'
+            status['errors'].append('auth.log inaccessible — run with sudo')
             return
 
         logwatcher_status['active']     = True
@@ -1594,24 +1594,24 @@ class NetworkCapture(threading.Thread):
         try:
             from scapy.all import sniff, IP, TCP, UDP, Raw, get_if_list
         except ImportError:
-            sniffer_status['error'] = 'scapy non installé (pip install scapy)'
+            sniffer_status['error'] = 'scapy not installed (pip install scapy)'
             status['errors'].append('NetworkCapture: pip install scapy')
             return
 
         # ── Vérification des droits selon OS ─────────────────────────
         if SYSTEM == 'Windows':
             if not self._is_admin_windows():
-                sniffer_status['error'] = 'Droits Administrateur requis (clic droit → Exécuter en tant qu\'admin)'
-                status['errors'].append('NetworkCapture: droits Admin requis')
+                sniffer_status['error'] = 'Administrator privileges required (right-click → Run as administrator)'
+                status['errors'].append('NetworkCapture: Admin privileges required')
                 return
             if not self._check_npcap_installed():
-                sniffer_status['error'] = 'npcap non installé — téléchargez https://npcap.com/'
-                status['errors'].append('NetworkCapture: npcap requis sur Windows')
-                print('[MODULE 1] NIDS: npcap manquant — capture désactivée', file=sys.stderr)
+                sniffer_status['error'] = 'npcap not installed — download from https://npcap.com/'
+                status['errors'].append('NetworkCapture: npcap required on Windows')
+                print('[MODULE 1] NIDS: npcap missing — capture disabled', file=sys.stderr)
                 return
         elif os.geteuid() != 0:
-            sniffer_status['error'] = 'Droits root requis (lancez avec sudo)'
-            status['errors'].append('NetworkCapture: droits root requis (sudo)')
+            sniffer_status['error'] = 'Root privileges required (run with sudo)'
+            status['errors'].append('NetworkCapture: root privileges required (sudo)')
             return
 
         # Charger les règles fichier
@@ -1631,8 +1631,8 @@ class NetworkCapture(threading.Thread):
             return
 
         if not all_ifaces:
-            sniffer_status['error'] = 'Aucune interface disponible'
-            print(f'[MODULE 1] NIDS: aucune interface', file=sys.stderr)
+            sniffer_status['error'] = 'No interface available'
+            print(f'[MODULE 1] NIDS: no interface', file=sys.stderr)
             return
 
         # Filtrer les interfaces non pertinentes sur Windows
@@ -2455,15 +2455,15 @@ class AuditdCollector(threading.Thread):
 
     def run(self):
         if not os.path.exists(AUDIT_LOG):
-            auditd_status['error'] = 'audit.log absent — installez auditd'
-            status['errors'].append('AuditdCollector: audit.log absent')
+            auditd_status['error'] = 'audit.log missing — install auditd'
+            status['errors'].append('AuditdCollector: audit.log missing')
             return
 
         try:
             open(AUDIT_LOG).close()
         except PermissionError:
-            auditd_status['error'] = 'Permission refusée — lancez avec sudo'
-            status['errors'].append('AuditdCollector: permission refusée sur audit.log')
+            auditd_status['error'] = 'Permission denied — run with sudo'
+            status['errors'].append('AuditdCollector: permission denied on audit.log')
             return
 
         # Charger les règles
