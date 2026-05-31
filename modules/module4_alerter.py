@@ -104,7 +104,7 @@ def _save_to_db(data: dict, app):
         alert = Alert(
             message=(
                 f"[IDS] {event.get('username','?')} | "
-                f"{event.get('task','?')} sur {event.get('resource','?')} | "
+                f"{event.get('task','?')} on {event.get('resource','?')} | "
                 f"{violation.get('message','?')}"
             ),
             severity=violation.get('severity', 'high'),
@@ -411,9 +411,9 @@ class AlertDaemon(threading.Thread):
         smtp = self._config.get('smtp', {})
         if smtp.get('host') and smtp.get('to'):
             subject = (
-                f"[IDS ALERTE {severity.upper()}] "
+                f"[IDS ALERT {severity.upper()}] "
                 f"{event.get('username', '?')} — "
-                f"{event.get('task', '?')} sur {event.get('resource', '?')}"
+                f"{event.get('task', '?')} on {event.get('resource', '?')}"
             )
             _send_email(subject, alert_text, smtp)
 

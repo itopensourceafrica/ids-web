@@ -914,7 +914,7 @@ def ids_run():
             entries_checked += 1
             if table_size >= M:
                 db.session.commit()
-                flash(f'Limite M={M} atteinte — {intrusions_found} nouvelle(s) intrusion(s) sur {entries_checked} entrées.', 'warning')
+                flash(f'M={M} limit reached — {intrusions_found} new intrusion(s) on {entries_checked} entries.', 'warning')
                 return redirect(url_for('ids_intrusions'))
 
             prev = Intrusion.query.filter_by(entry_id=entry.id).first()
@@ -936,7 +936,7 @@ def ids_run():
                 db.session.add(intr)
                 db.session.flush()
                 db.session.add(Alert(
-                    message=(f"[IDS] {entry.username} | {entry.task} sur "
+                    message=(f"[IDS] {entry.username} | {entry.task} on "
                              f"{entry.resource_name} | {violation['message']}"),
                     severity=violation['severity'],
                 ))
@@ -945,8 +945,8 @@ def ids_run():
         f.analyzed = True
 
     db.session.commit()
-    msg = (f'Analyse terminée : {intrusions_found} intrusion(s) détectée(s) '
-           f'sur {entries_checked} entrées ({len(files)} fichier(s))')
+    msg = (f'Analysis complete: {intrusions_found} intrusion(s) detected '
+           f'on {entries_checked} entries ({len(files)} file(s))')
     flash(msg, 'danger' if intrusions_found > 0 else 'success')
     return redirect(url_for('ids_intrusions'))
 
@@ -1015,7 +1015,7 @@ def ids_add_entry(file_id):
         db.session.add(intrusion)
         db.session.flush()
         db.session.add(Alert(
-            message=f"[IDS] {entry.username} | {entry.task} sur {entry.resource_name} | {violation['message']}",
+            message=f"[IDS] {entry.username} | {entry.task} on {entry.resource_name} | {violation['message']}",
             severity=violation['severity']
         ))
     db.session.commit()

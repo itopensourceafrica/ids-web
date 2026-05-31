@@ -1554,18 +1554,18 @@ class NetworkCapture(threading.Thread):
 
         while True:
             try:
-                print(f'[MODULE 1] NIDS: sniff démarré sur {iface}', file=sys.stderr)
+                print(f'[MODULE 1] NIDS: sniff started on {iface}', file=sys.stderr)
                 sniff(iface=iface, prn=self._handle, store=False)
-                # Si sniff retourne (interface fermée), on retry
-                print(f'[MODULE 1] NIDS: sniff sur {iface} arrêté, retry dans {retry_delay}s',
+                # If sniff returns (interface closed), retry
+                print(f'[MODULE 1] NIDS: sniff on {iface} stopped, retry in {retry_delay}s',
                       file=sys.stderr)
             except Exception as e:
                 msg = str(e)
-                # Network down = interface inactive, skip silencieusement
+                # Network down = inactive interface, skip silently
                 if 'Network is down' in msg or 'No such device' in msg:
-                    print(f'[MODULE 1] NIDS: {iface} inactive, ignorée', file=sys.stderr)
+                    print(f'[MODULE 1] NIDS: {iface} inactive, ignored', file=sys.stderr)
                     return
-                print(f'[MODULE 1] NIDS ERROR sur {iface}: {e}', file=sys.stderr)
+                print(f'[MODULE 1] NIDS ERROR on {iface}: {e}', file=sys.stderr)
                 status['errors'].append(f'NetworkCapture({iface}): {e}')
 
             time.sleep(retry_delay)

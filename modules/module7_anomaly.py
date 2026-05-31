@@ -139,18 +139,18 @@ class AnomalyDetector(threading.Thread):
                 anomaly_reasons = []
                 hour = e.execution_date.hour if e.execution_date else 12
 
-                # 1. Activité à une heure très inhabituelle
+                # 1. Activity at a very unusual hour
                 z = baseline.hour_anomaly_score(hour)
                 if abs(z) > ZSCORE_THRESHOLD:
-                    anomaly_reasons.append(f'heure inhabituelle (z-score={z:.2f}, h={hour})')
+                    anomaly_reasons.append(f'unusual hour (z-score={z:.2f}, h={hour})')
 
-                # 2. Ressource jamais/rarement accédée
+                # 2. Resource never/rarely accessed
                 if baseline.is_unusual_resource(e.resource_name):
-                    anomaly_reasons.append(f'ressource inhabituelle ({e.resource_name})')
+                    anomaly_reasons.append(f'unusual resource ({e.resource_name})')
 
-                # 3. Tâche inhabituelle
+                # 3. Unusual task
                 if baseline.is_unusual_task(e.task):
-                    anomaly_reasons.append(f'tâche inhabituelle ({e.task})')
+                    anomaly_reasons.append(f'unusual task ({e.task})')
 
                 if anomaly_reasons:
                     # Déduplication : 1 alerte par user / type / heure
@@ -189,7 +189,7 @@ class AnomalyDetector(threading.Thread):
 
                 for a in anomalies:
                     msg = (f'[ANOMALY] {a["username"]} — '
-                           f'{a["task"]} sur {a["resource"]} : '
+                           f'{a["task"]} on {a["resource"]}: '
                            + ' ; '.join(a['reasons']))
                     print(msg, file=sys.stderr)
 
