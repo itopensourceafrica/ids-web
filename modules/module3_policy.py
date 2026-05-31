@@ -41,7 +41,7 @@ def _parse_dt(s: str) -> datetime:
             return datetime.strptime(s, fmt)
         except ValueError:
             continue
-    raise ValueError(f"Format invalide: '{s}' — attendu YYYY-MM-DD ou YYYY-MM-DD HH:MM")
+    raise ValueError(f"Invalid format: '{s}' — expected YYYY-MM-DD or YYYY-MM-DD HH:MM")
 
 
 HEADER = """\
@@ -142,7 +142,7 @@ def import_from_file(app, path: str = None, replace: bool = True) -> dict:
 
     rules = parse_policy_file(path)
     if not rules:
-        result['errors'].append('Aucune règle valide trouvée dans le fichier')
+        result['errors'].append('No valid rule found in file')
         return result
 
     with app.app_context():

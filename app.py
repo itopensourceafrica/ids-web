@@ -241,14 +241,14 @@ def login():
         # Validation CSRF manuelle (la global before_request exempte /login)
         token = request.form.get('_csrf_token')
         if not validate_csrf(token):
-            flash('Token CSRF invalide. Rechargez la page.', 'danger')
+            flash('Invalid CSRF token. Reload the page.', 'danger')
             return redirect(url_for('login'))
 
         # Vérification brute force (persistant en DB)
         blocked, remaining = is_blocked(ip)
         if blocked:
             mins = remaining // 60
-            flash(f'Trop de tentatives échouées. Réessayez dans {mins} min.', 'danger')
+            flash(f'Too many failed attempts. Retry in {mins} min.', 'danger')
             return redirect(url_for('login'))
 
         username = request.form.get('username', '').strip()
@@ -263,7 +263,7 @@ def login():
             if user.totp_enabled:
                 import pyotp
                 if not user.totp_secret:
-                    flash('Erreur 2FA : secret manquant. Contactez un admin.', 'danger')
+                    flash('2FA error: missing secret. Contact an admin.', 'danger')
                     return redirect(url_for('login'))
                 totp = pyotp.TOTP(user.totp_secret)
                 if not totp_code:
@@ -272,7 +272,7 @@ def login():
                         require_totp=True, username=username)
                 if not totp.verify(totp_code, valid_window=1):
                     record_attempt(ip, username, success=False, user_agent=ua)
-                    flash('Code 2FA invalide.', 'danger')
+                    flash('Invalid 2FA code.', 'danger')
                     return render_template('login.html',
                         require_totp=True, username=username)
 
@@ -290,7 +290,7 @@ def login():
             return redirect(next_url)
         else:
             record_attempt(ip, username, success=False, user_agent=ua)
-            flash('Identifiants invalides.', 'danger')
+            flash('Invalid credentials.', 'danger')
             return redirect(url_for('login'))
 
     # GET
@@ -302,7 +302,7 @@ def logout():
     if 'user_id' in session:
         log_action('logout', target=session.get('username', ''))
     logout_user()
-    flash('Déconnexion réussie.', 'info')
+    flash('Logged out successfully.', 'info')
     return redirect(url_for('login'))
 
 
@@ -347,12 +347,12 @@ def account_2fa_confirm():
     pending_secret = session.get('_pending_totp_secret')
 
     if not pending_secret:
-        flash('Session expirée. Recommencez l\'activation.', 'danger')
+        flash('Session expired. Restart activation.', 'danger')
         return redirect(url_for('change_password'))
 
     totp = pyotp.TOTP(pending_secret)
     if not totp.verify(code, valid_window=1):
-        flash('Code invalide. Vérifiez l\'heure de votre téléphone.', 'danger')
+        flash('Invalid code. Check your phone time.', 'danger')
         return redirect(url_for('change_password'))
 
     user.totp_secret = pending_secret
@@ -360,7 +360,7 @@ def account_2fa_confirm():
     db.session.commit()
     session.pop('_pending_totp_secret', None)
     log_action('2fa_enable', target=user.username)
-    flash('2FA activé avec succès !', 'success')
+    flash('2FA enabled successfully!', 'success')
     return redirect(url_for('change_password'))
 
 
@@ -372,14 +372,14 @@ def account_2fa_disable():
     password = request.form.get('password', '')
 
     if not user.check_password(password):
-        flash('Mot de passe incorrect.', 'danger')
+        flash('Incorrect password.', 'danger')
         return redirect(url_for('change_password'))
 
     user.totp_secret = None
     user.totp_enabled = False
     db.session.commit()
     log_action('2fa_disable', target=user.username)
-    flash('2FA désactivé.', 'info')
+    flash('2FA disabled.', 'info')
     return redirect(url_for('change_password'))
 
 
@@ -400,19 +400,19 @@ def change_password():
         confirm = request.form.get('confirm_password', '')
 
         if not user.check_password(current_pwd):
-            flash('Mot de passe actuel incorrect.', 'danger')
+            flash('Current password is incorrect.', 'danger')
             return redirect(url_for('change_password'))
         if len(new_pwd) < 8:
-            flash('Le nouveau mot de passe doit avoir au moins 8 caractères.', 'danger')
+            flash('New password must be at least 8 characters.', 'danger')
             return redirect(url_for('change_password'))
         if new_pwd != confirm:
-            flash('Les mots de passe ne correspondent pas.', 'danger')
+            flash('Passwords do not match.', 'danger')
             return redirect(url_for('change_password'))
 
         user.set_password(new_pwd)
         db.session.commit()
         log_action('password_change', target=user.username)
-        flash('Mot de passe modifié avec succès.', 'success')
+        flash('Password changed successfully.', 'success')
         return redirect(url_for('index'))
 
     return render_template('change_password.html', user=user)
@@ -438,13 +438,13 @@ def admin_add_user():
     role     = request.form.get('role', 'viewer')
 
     if WebUser.query.filter_by(username=username).first():
-        flash(f"L'utilisateur '{username}' existe déjà.", 'warning')
+        flash(f"User '{username}' already exists.", 'warning')
         return redirect(url_for('admin_users'))
     if len(password) < 8:
-        flash('Mot de passe trop court (8 caractères minimum).', 'danger')
+        flash('Password too short (8 characters minimum).', 'danger')
         return redirect(url_for('admin_users'))
     if role not in ('admin', 'analyst', 'viewer'):
-        flash('Rôle invalide.', 'danger')
+        flash('Invalid role.', 'danger')
         return redirect(url_for('admin_users'))
 
     u = WebUser(username=username, role=role, active=True)
@@ -452,7 +452,7 @@ def admin_add_user():
     db.session.add(u)
     db.session.commit()
     log_action('user_create', target=username, details=f'role={role}')
-    flash(f"Utilisateur '{username}' créé.", 'success')
+    flash(f"User '{username}' created.", 'success')
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/users/toggle/<int:user_id>')
@@ -460,7 +460,7 @@ def admin_add_user():
 def admin_toggle_user(user_id):
     u = WebUser.query.get_or_404(user_id)
     if u.id == session.get('user_id'):
-        flash('Vous ne pouvez pas désactiver votre propre compte.', 'danger')
+        flash('You cannot disable your own account.', 'danger')
         return redirect(url_for('admin_users'))
     u.active = not u.active
     db.session.commit()
@@ -472,13 +472,13 @@ def admin_toggle_user(user_id):
 def admin_delete_user(user_id):
     u = WebUser.query.get_or_404(user_id)
     if u.id == session.get('user_id'):
-        flash('Vous ne pouvez pas supprimer votre propre compte.', 'danger')
+        flash('You cannot delete your own account.', 'danger')
         return redirect(url_for('admin_users'))
     name = u.username
     db.session.delete(u)
     db.session.commit()
     log_action('user_delete', target=name)
-    flash(f"Utilisateur '{name}' supprimé.", 'info')
+    flash(f"User '{name}' deleted.", 'info')
     return redirect(url_for('admin_users'))
 
 
@@ -594,7 +594,7 @@ def ack_alert(alert_id):
 def ack_all_alerts():
     Alert.query.filter_by(acknowledged=False).update({'acknowledged': True})
     db.session.commit()
-    flash('Toutes les alertes acquittées.', 'success')
+    flash('All alerts acknowledged.', 'success')
     return redirect(url_for('alerts'))
 
 
@@ -648,7 +648,7 @@ def ids_add_nids_rule():
     ))
     db.session.commit()
     log_action('nids_rule_create', target=request.form['name'].strip())
-    flash('Règle NIDS ajoutée.', 'success')
+    flash('NIDS rule added.', 'success')
     return redirect(url_for('ids_policy', type='nids'))
 
 @app.route('/ids/policy/nids/toggle/<int:rule_id>')
@@ -664,7 +664,7 @@ def ids_toggle_nids_rule(rule_id):
 def ids_delete_nids_rule(rule_id):
     db.session.delete(NidsRule.query.get_or_404(rule_id))
     db.session.commit()
-    flash('Règle NIDS supprimée.', 'info')
+    flash('NIDS rule deleted.', 'info')
     return redirect(url_for('ids_policy', type='nids'))
 
 @app.route('/ids/policy/add', methods=['POST'])
@@ -683,7 +683,7 @@ def ids_add_policy():
         end_date=datetime.strptime(f'{e_date}T{e_time}', '%Y-%m-%dT%H:%M'),
     ))
     db.session.commit()
-    flash("Règle d'accès ajoutée.", 'success')
+    flash("Access rule added.", 'success')
     return redirect(url_for('ids_policy'))
 
 @app.route('/ids/policy/toggle/<int:policy_id>')
@@ -713,12 +713,12 @@ def ids_add_detect_pattern():
         threshold  = int(request.form.get('threshold', 5))
         window_sec = int(request.form.get('window_sec', 5))
     except ValueError:
-        flash('Seuil et fenêtre doivent être des entiers.', 'danger')
+        flash('Threshold and window must be integers.', 'danger')
         return redirect(url_for('ids_policy', type='detect'))
 
     pattern_name = request.form.get('pattern_name', '').strip().upper()
     if not pattern_name:
-        flash('Le nom du pattern est requis.', 'danger')
+        flash('Pattern name is required.', 'danger')
         return redirect(url_for('ids_policy', type='detect'))
 
     db.session.add(AccessPolicy(
@@ -743,7 +743,7 @@ def ids_add_detect_pattern():
 def ids_delete_policy(policy_id):
     db.session.delete(AccessPolicy.query.get_or_404(policy_id))
     db.session.commit()
-    flash('Règle supprimée.', 'info')
+    flash('Rule deleted.', 'info')
     return redirect(url_for('ids_policy'))
 
 @app.route('/ids/policy/import', methods=['POST'])
@@ -784,7 +784,7 @@ def ids_upload_policy():
     """Upload un fichier policy.conf depuis le navigateur."""
     from modules import module3_policy as m3
     if 'file' not in request.files:
-        flash('Aucun fichier.', 'danger')
+        flash('No file.', 'danger')
         return redirect(url_for('ids_policy'))
     f = request.files['file']
     tmp = m3.POLICY_FILE + '.tmp'
@@ -813,11 +813,11 @@ def ids_users():
 def ids_add_user():
     username = request.form['username'].strip()
     if IDSUser.query.filter_by(username=username).first():
-        flash(f"L'utilisateur '{username}' existe déjà.", 'warning')
+        flash(f"User '{username}' already exists.", 'warning')
         return redirect(url_for('ids_users'))
     db.session.add(IDSUser(username=username, role=request.form.get('role', 'user')))
     db.session.commit()
-    flash(f"Utilisateur '{username}' ajouté.", 'success')
+    flash(f"User '{username}' added.", 'success')
     return redirect(url_for('ids_users'))
 
 @app.route('/ids/users/delete/<int:user_id>')
@@ -827,7 +827,7 @@ def ids_delete_user(user_id):
     AccessPolicy.query.filter_by(user_id=user.id).delete()
     db.session.delete(user)
     db.session.commit()
-    flash('Utilisateur supprimé.', 'info')
+    flash('User deleted.', 'info')
     return redirect(url_for('ids_users'))
 
 @app.route('/ids/resources')
@@ -843,7 +843,7 @@ def ids_add_resource():
         return redirect(url_for('ids_resources'))
     db.session.add(Resource(name=name, description=request.form.get('description')))
     db.session.commit()
-    flash('Ressource ajoutée.', 'success')
+    flash('Resource added.', 'success')
     return redirect(url_for('ids_resources'))
 
 @app.route('/ids/resources/delete/<int:resource_id>')
@@ -853,7 +853,7 @@ def ids_delete_resource(resource_id):
     AccessPolicy.query.filter_by(resource_id=res.id).delete()
     db.session.delete(res)
     db.session.commit()
-    flash('Ressource supprimée.', 'info')
+    flash('Resource deleted.', 'info')
     return redirect(url_for('ids_resources'))
 
 
@@ -891,17 +891,17 @@ def ids_run():
         M = max(1, int(request.form.get('M', 1000)))
         K = max(1, int(request.form.get('K', 100)))
     except ValueError:
-        flash('Paramètres invalides.', 'danger')
+        flash('Invalid parameters.', 'danger')
         return redirect(url_for('ids_dashboard'))
 
     policies = m3._load_policy_direct(app)[:K]
     if not policies:
-        flash('Aucune politique active. Importez policy.conf ou ajoutez des règles.', 'warning')
+        flash('No active policy. Import policy.conf or add rules.', 'warning')
         return redirect(url_for('ids_policy'))
 
     files = EventFile.query.order_by(EventFile.file_number.desc()).limit(P).all()
     if not files:
-        flash("Aucun fichier d'événements. Créez des fichiers d'abord.", 'warning')
+        flash("No event file. Create files first.", 'warning')
         return redirect(url_for('ids_files'))
 
     intrusions_found = 0
@@ -971,7 +971,7 @@ def ids_delete_file(file_id):
     EventEntry.query.filter_by(file_id=file_id).delete()
     db.session.delete(EventFile.query.get_or_404(file_id))
     db.session.commit()
-    flash('Fichier supprimé.', 'info')
+    flash('File deleted.', 'info')
     return redirect(url_for('ids_files'))
 
 @app.route('/ids/files/<int:file_id>')
@@ -1019,7 +1019,7 @@ def ids_add_entry(file_id):
             severity=violation['severity']
         ))
     db.session.commit()
-    flash('Entrée ajoutée et analysée.', 'success')
+    flash('Entry added and analyzed.', 'success')
     return redirect(url_for('ids_file_detail', file_id=file_id))
 
 
@@ -1133,7 +1133,7 @@ def ids_intrusions_partial():
     rows = ''
     for i in intrusions:
         vtype = i.violation_type or ''
-        badge = 'red' if ('non authentifié' in vtype or 'non autorisée' in vtype) else 'amber'
+        badge = 'red' if ('not authenticated' in vtype or 'not allowed' in vtype or 'not in security policy' in vtype) else 'amber'
         rows += (
             f'<tr><td><strong>{i.entry.username}</strong></td>'
             f'<td><code>{i.entry.resource_name}</code></td>'
@@ -1142,7 +1142,7 @@ def ids_intrusions_partial():
             f'<td style="color:var(--text-3);font-size:12px">'
             f'{i.detected_at.strftime("%d/%m %H:%M:%S")}</td></tr>'
         )
-    return rows or '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-3)">Aucune intrusion</td></tr>'
+    return rows or '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-3)">No intrusion</td></tr>'
 
 @app.route('/ids/intrusions/reset')
 @editor_required
@@ -1152,7 +1152,7 @@ def ids_reset_intrusions():
     for f in EventFile.query.all():
         f.analyzed = False
     db.session.commit()
-    flash("Table d'intrusions réinitialisée.", 'info')
+    flash("Intrusion table reset.", 'info')
     return redirect(url_for('ids_intrusions'))
 
 
@@ -1254,7 +1254,7 @@ def ids_settings():
             with open(config_file, 'w') as f:
                 _json.dump(cfg, f, indent=2)
             log_action('config_update', target='smtp')
-            flash('Configuration SMTP sauvegardée.', 'success')
+            flash('SMTP configuration saved.', 'success')
 
         elif action == 'webhooks':
             cfg['slack_webhook']   = request.form.get('slack_webhook', '').strip()
@@ -1268,7 +1268,7 @@ def ids_settings():
             with open(config_file, 'w') as f:
                 _json.dump(cfg, f, indent=2)
             log_action('config_update', target='webhooks')
-            flash('Configuration webhooks sauvegardée (rechargée automatiquement).', 'success')
+            flash('Webhooks configuration saved (reloaded automatically).', 'success')
 
         elif action == 'integrity':
             paths = request.form.get('integrity_paths', '')
@@ -1276,7 +1276,7 @@ def ids_settings():
                 f.write('# Fichiers surveillés — un chemin par ligne\n')
                 f.write(paths.strip() + '\n')
             log_action('config_update', target='integrity')
-            flash('Fichiers surveillés sauvegardés. Redémarrez le collecteur pour appliquer.', 'success')
+            flash('Watched files saved. Restart the collector to apply.', 'success')
 
         return redirect(url_for('ids_settings'))
 

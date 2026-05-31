@@ -148,3 +148,138 @@ INTRUSION DÉTECTÉE
   Type        : user_unknown
   Ligne brute : SCAN DE PORTS: 10.57.173.162 → 45 ports en 60s
 ═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITICAL] 2026-05-31 16:02:39 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.162
+  Resource    : network_scanner
+  Task        : port_scan
+  Access date : 2026-05-31 16:02:36
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : User '10.57.173.162' not in security policy
+  Type        : user_unknown
+  Raw line    : SCAN DE PORTS: 10.57.173.162 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITICAL] 2026-05-31 16:02:39 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.162
+  Resource    : network_scanner
+  Task        : port_scan
+  Access date : 2026-05-31 16:02:37
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : User '10.57.173.162' not in security policy
+  Type        : user_unknown
+  Raw line    : SCAN DE PORTS: 10.57.173.162 → 25 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HIGH] 2026-05-31 16:02:42 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.10
+  Resource    : email_server
+  Task        : connect
+  Access date : 2026-05-31 16:02:40
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Suspicious inbound connection from 10.57.173.10 on email_server (connect)
+  Type        : network_intrusion
+  Raw line    : SMTP connection with auth: 10.57.173.10:587 → 212.227.24.209
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITICAL] 2026-05-31 16:02:42 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.162
+  Resource    : network_scanner
+  Task        : port_scan
+  Access date : 2026-05-31 16:02:40
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : User '10.57.173.162' not in security policy
+  Type        : user_unknown
+  Raw line    : SCAN DE PORTS: 10.57.173.162 → 35 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITICAL] 2026-05-31 16:16:45 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.10
+  Resource    : network_scanner
+  Task        : network_access
+  Access date : 2026-05-31 16:16:45
+  Source      : nids/rule_1
+───────────────────────────────────────────────────────
+  Violation   : User '10.57.173.10' not in security policy
+  Type        : user_unknown
+  Raw line    : ALERTE (règle #1 'ssh'): 10.57.173.10:43686 → 37.27.141.234:22 (TCP)
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HIGH] 2026-05-31 16:16:46 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.10
+  Resource    : ssh_server
+  Task        : connect
+  Access date : 2026-05-31 16:16:45
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Suspicious inbound connection from 10.57.173.10 on ssh_server (connect)
+  Type        : network_intrusion
+  Raw line    : SSH connection detected: 10.57.173.10:22 → 37.27.141.234
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HIGH] 2026-05-31 16:16:49 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.10
+  Resource    : email_server
+  Task        : connect
+  Access date : 2026-05-31 16:16:46
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Suspicious inbound connection from 10.57.173.10 on email_server (connect)
+  Type        : network_intrusion
+  Raw line    : SMTP connection with auth: 10.57.173.10:587 → 212.227.24.206
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[CRITICAL] 2026-05-31 16:17:46 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.162
+  Resource    : network_scanner
+  Task        : port_scan
+  Access date : 2026-05-31 16:17:44
+  Source      : network/port_scan
+───────────────────────────────────────────────────────
+  Violation   : User '10.57.173.162' not in security policy
+  Type        : user_unknown
+  Raw line    : SCAN DE PORTS: 10.57.173.162 → 15 ports en 60s
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+[HIGH] 2026-05-31 16:17:49 UTC
+───────────────────────────────────────────────────────
+INTRUSION DETECTED
+  User        : 10.57.173.10
+  Resource    : email_server
+  Task        : connect
+  Access date : 2026-05-31 16:17:47
+  Source      : network/TCP
+───────────────────────────────────────────────────────
+  Violation   : Suspicious inbound connection from 10.57.173.10 on email_server (connect)
+  Type        : network_intrusion
+  Raw line    : SMTP connection with auth: 10.57.173.10:587 → 212.227.24.205
+═══════════════════════════════════════════════════════

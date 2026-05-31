@@ -183,10 +183,10 @@ class LogWatcher:
 
         if not self._log_file:
             log_watcher_status['error'] = (
-                "Aucun fichier de log lisible. "
-                "Exécutez : sudo chmod o+r /var/log/auth.log"
+                "No readable log file. "
+                "Run: sudo chmod o+r /var/log/auth.log"
             )
-            print("[IDS] LogWatcher : aucun fichier accessible")
+            print("[IDS] LogWatcher: no accessible file")
             return
 
         # Ne traiter que les nouvelles lignes (pas relire l'historique au démarrage)

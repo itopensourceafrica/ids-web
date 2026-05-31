@@ -563,17 +563,226 @@
     .a5 { animation: fadeUp .35s ease both .20s; }
     .a6 { animation: fadeUp .35s ease both .24s; }
     .a7 { animation: fadeUp .35s ease both .28s; }
+
+    /* ══ HAMBURGER (mobile only) ══ */
+    .nav-toggle {
+        display: none;
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        font-size: 16px;
+        color: var(--text);
+        cursor: pointer;
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+    .nav-toggle .nav-icon-close { display: none; }
+    body.nav-open .nav-toggle .nav-icon-open  { display: none; }
+    body.nav-open .nav-toggle .nav-icon-close { display: inline; }
+    body.nav-open .nav-toggle { background: var(--blue-s); border-color: #bfdbfe; color: var(--blue); }
+
+    .nav-menu { display: contents; }
+    .nav-backdrop {
+        display: none;
+        position: fixed;
+        inset: 56px 0 0 0;
+        background: rgba(0,0,0,.4);
+        z-index: 399;
+        animation: fadeBackdrop .2s ease;
+    }
+    @keyframes fadeBackdrop { from { opacity:0; } to { opacity:1; } }
+    body.nav-open .nav-backdrop { display: block; }
+    body.nav-open { overflow: hidden; }
+
+    /* ══ RESPONSIVE — MOBILE & TABLET ══ */
+    @media (max-width: 900px) {
+        /* Navbar bar stays at the top: brand left + hamburger right */
+        .nav-inner { padding: 0 60px 0 16px; height: 56px; justify-content: flex-start; }
+        .brand     { left: 16px; position: absolute; }
+        .brand-name { font-size: 14px; }
+        .nav-toggle { display: flex; }
+
+        /* Drawer: hidden by default, slides in from the right when open */
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 56px;
+            right: 0;
+            bottom: 0;
+            width: min(320px, 86vw);
+            background: var(--surface);
+            padding: 14px 14px 24px;
+            overflow-y: auto;
+            z-index: 401;
+            box-shadow: -8px 0 24px rgba(0,0,0,.10);
+            transform: translateX(100%);
+            transition: transform .25s ease;
+            gap: 4px;
+        }
+        body.nav-open .nav-menu { transform: translateX(0); }
+
+        /* Items inside drawer */
+        .nav-menu > a.nl {
+            display: flex;
+            width: 100%;
+            height: 46px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border-bottom: none;
+            justify-content: flex-start;
+            font-size: 14px;
+        }
+        .nav-menu > a.nl.active {
+            background: var(--blue-s);
+            color: var(--blue);
+            border-bottom: none;
+        }
+        .nav-menu > .nav-div {
+            display: block;
+            width: auto;
+            height: 1px;
+            background: var(--border);
+            margin: 6px 4px;
+        }
+
+        /* Dropdowns become accordions */
+        .nav-menu > .nav-dd { position: static; width: 100%; }
+        .nav-menu > .nav-dd > .nl {
+            width: 100%;
+            height: 46px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border-bottom: none;
+            justify-content: flex-start;
+            font-size: 14px;
+        }
+        .nav-menu > .nav-dd > .nl .caret { margin-left: auto; transition: transform .2s; }
+        .nav-menu > .nav-dd.expanded > .nl .caret { transform: rotate(180deg); }
+        .nav-menu > .nav-dd > .nl.active {
+            background: var(--blue-s);
+            color: var(--blue);
+        }
+        .nav-menu > .nav-dd .nav-dd-menu {
+            position: static;
+            display: none;
+            box-shadow: none;
+            border: none;
+            background: transparent;
+            padding: 4px 0 4px 16px;
+            min-width: 0;
+            margin-top: 0;
+        }
+        .nav-menu > .nav-dd.expanded .nav-dd-menu { display: block; }
+        .nav-menu > .nav-dd:hover .nav-dd-menu { display: none; }
+        .nav-menu > .nav-dd.expanded:hover .nav-dd-menu { display: block; }
+        .nav-menu .nav-dd-menu a { height: 40px; padding: 0 12px; font-size: 13.5px; }
+
+        /* Actions section at the bottom of the drawer */
+        .nav-menu > .nav-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            position: static;
+            margin-top: auto;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            gap: 10px;
+        }
+        .nav-menu > .nav-actions .status-pill {
+            align-self: flex-start;
+            margin-bottom: 4px;
+        }
+        .nav-menu > .nav-actions .nav-dd { margin-left: 0 !important; width: 100%; }
+        .nav-menu > .nav-actions .nav-dd > .nl {
+            width: 100%;
+            height: 46px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            justify-content: flex-start;
+            background: var(--bg);
+        }
+
+        /* — Main padding — */
+        .main { padding: 18px 14px 48px; }
+
+        /* — Page title — */
+        .pg-head { margin-bottom: 16px; gap: 10px; flex-direction: column; align-items: stretch; }
+        .pg-title { font-size: 18px; }
+        .pg-sub   { font-size: 12px; }
+
+        /* — Stat cards — */
+        .stat { padding: 14px 14px; }
+        .stat-val { font-size: 24px; }
+        .stat-lbl { font-size: 11.5px; margin-bottom: 8px; }
+
+        /* — Grid: all single column on tight screens — */
+        .g-stats { gap: 10px; }
+        .g-6, .g-5, .g-4 { grid-template-columns: repeat(2,1fr); }
+        .g-3, .g-2       { grid-template-columns: 1fr; }
+        .two-col, .three-col { grid-template-columns: 1fr; gap: 14px; }
+
+        /* — Cards — */
+        .card-body   { padding: 14px 16px; }
+        .card-header { padding: 12px 16px; }
+
+        /* — Tables — */
+        .tbl thead th { padding: 9px 12px; font-size: 10.5px; }
+        .tbl tbody td { padding: 10px 12px; font-size: 13px; }
+
+        /* — Buttons — */
+        .btn { font-size: 13px; padding: 0 14px; height: 38px; }
+        .btn-sm { height: 32px; padding: 0 10px; font-size: 12px; }
+
+        /* — Forms — */
+        .f-input, .f-select, .f-textarea { font-size: 14px; padding: 10px 12px; }
+
+        /* — Flash — */
+        .flash { padding: 10px 14px; font-size: 13px; }
+    }
+
+    /* ══ Phones (≤ 480px) ══ */
+    @media (max-width: 480px) {
+        .g-6, .g-5, .g-4 { grid-template-columns: 1fr; }
+        .pg-title { font-size: 17px; }
+        .stat-val { font-size: 22px; }
+        .main { padding: 14px 10px 40px; }
+        .tbl thead th { padding: 8px 10px; }
+        .tbl tbody td { padding: 9px 10px; font-size: 12.5px; }
+        /* Filter forms inside cards: force vertical */
+        form[style*="grid-template-columns"] {
+            display: flex !important;
+            flex-direction: column;
+            gap: 8px !important;
+        }
+    }
     </style>
 </head>
 <body>
 
 {% set p = request.path %}
+<div class="nav-backdrop" onclick="document.body.classList.remove('nav-open')"></div>
 <nav class="nav">
   <div class="nav-inner">
     <a href="/" class="brand">
       <div class="brand-icon"><i class="fas fa-shield-halved"></i></div>
       <span class="brand-name">IDS Web</span>
     </a>
+    <button class="nav-toggle" type="button" aria-label="Menu"
+            onclick="document.body.classList.toggle('nav-open')">
+      <i class="fas fa-bars nav-icon-open"></i>
+      <i class="fas fa-xmark nav-icon-close"></i>
+    </button>
+
+    <div class="nav-menu">
 
     <!-- Standalone -->
     <a class="nl {{ 'active' if p == '/' }}" href="/"><i class="fas fa-chart-line ico"></i> Dashboard</a>
@@ -638,6 +847,8 @@
         </div>
       {% endif %}
     </div>
+
+    </div><!-- /.nav-menu -->
   </div>
 </nav>
 
@@ -656,6 +867,34 @@
 
   {% block content %}{% endblock %}
 </main>
+
+<script>
+// Mobile nav: tap a dropdown label to expand it (replaces hover on touch)
+document.querySelectorAll('.nav-dd > .nl').forEach(function(trigger) {
+  trigger.addEventListener('click', function(e) {
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      e.preventDefault();
+      var dd = trigger.parentElement;
+      var wasOpen = dd.classList.contains('expanded');
+      // Close siblings
+      document.querySelectorAll('.nav-dd.expanded').forEach(function(o) {
+        if (o !== dd) o.classList.remove('expanded');
+      });
+      dd.classList.toggle('expanded', !wasOpen);
+    }
+  });
+});
+// Close drawer when a link is clicked (real navigation)
+document.querySelectorAll('.nav-dd-menu a, .nav-inner > a.nl').forEach(function(a) {
+  a.addEventListener('click', function() {
+    document.body.classList.remove('nav-open');
+  });
+});
+// Close drawer on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') document.body.classList.remove('nav-open');
+});
+</script>
 
 </body>
 </html>

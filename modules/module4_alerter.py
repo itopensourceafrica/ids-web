@@ -45,10 +45,10 @@ status = {
 }
 
 SEVERITY_LABELS = {
-    'critical': 'CRITIQUE',
-    'high':     'HAUTE',
-    'medium':   'MOYENNE',
-    'low':      'FAIBLE',
+    'critical': 'CRITICAL',
+    'high':     'HIGH',
+    'medium':   'MEDIUM',
+    'low':      'LOW',
 }
 
 
@@ -59,22 +59,22 @@ def _format_alert(data: dict) -> str:
     violation = data.get('violation', {})
     ts        = data.get('detected_at', datetime.now().isoformat())
 
-    severity_label = SEVERITY_LABELS.get(violation.get('severity', 'high'), 'HAUTE')
+    severity_label = SEVERITY_LABELS.get(violation.get('severity', 'high'), 'HIGH')
 
     return (
         f"\n{'═'*55}\n"
         f"[{severity_label}] {ts[:19].replace('T', ' ')} UTC\n"
         f"{'─'*55}\n"
-        f"INTRUSION DÉTECTÉE\n"
-        f"  Utilisateur : {event.get('username', '?')}\n"
-        f"  Ressource   : {event.get('resource', '?')}\n"
-        f"  Tâche       : {event.get('task', '?')}\n"
-        f"  Date accès  : {event.get('execution_date', '?')[:19].replace('T',' ')}\n"
+        f"INTRUSION DETECTED\n"
+        f"  User        : {event.get('username', '?')}\n"
+        f"  Resource    : {event.get('resource', '?')}\n"
+        f"  Task        : {event.get('task', '?')}\n"
+        f"  Access date : {event.get('execution_date', '?')[:19].replace('T',' ')}\n"
         f"  Source      : {event.get('source', '?')}\n"
         f"{'─'*55}\n"
         f"  Violation   : {violation.get('message', '?')}\n"
         f"  Type        : {violation.get('type', '?')}\n"
-        f"  Ligne brute : {event.get('raw', '')[:100]}\n"
+        f"  Raw line    : {event.get('raw', '')[:100]}\n"
         f"{'═'*55}\n"
     )
 
@@ -171,16 +171,16 @@ def _send_slack(url: str, data: dict):
     payload = {
         'attachments': [{
             'color': SEVERITY_COLOR.get(sev, '#666'),
-            'fallback': f'{emoji} IDS Alerte {sev.upper()}: {violation.get("message", "")}',
+            'fallback': f'{emoji} IDS Alert {sev.upper()}: {violation.get("message", "")}',
             'blocks': [
                 {'type': 'header', 'text': {
                     'type': 'plain_text',
-                    'text': f'{emoji} IDS — Alerte {sev.upper()}'
+                    'text': f'{emoji} IDS — Alert {sev.upper()}'
                 }},
                 {'type': 'section', 'fields': [
-                    {'type': 'mrkdwn', 'text': f'*Utilisateur:*\n{event.get("username", "?")}'},
-                    {'type': 'mrkdwn', 'text': f'*Tâche:*\n{event.get("task", "?")}'},
-                    {'type': 'mrkdwn', 'text': f'*Ressource:*\n{event.get("resource", "?")}'},
+                    {'type': 'mrkdwn', 'text': f'*User:*\n{event.get("username", "?")}'},
+                    {'type': 'mrkdwn', 'text': f'*Task:*\n{event.get("task", "?")}'},
+                    {'type': 'mrkdwn', 'text': f'*Resource:*\n{event.get("resource", "?")}'},
                     {'type': 'mrkdwn', 'text': f'*Source:*\n{event.get("source", "?")}'},
                 ]},
                 {'type': 'section', 'text': {
@@ -221,15 +221,15 @@ def _send_discord(url: str, data: dict):
     payload = {
         'username': 'IDS Web',
         'embeds': [{
-            'title': f'{emoji} Alerte {sev.upper()}',
+            'title': f'{emoji} Alert {sev.upper()}',
             'description': violation.get('message', ''),
             'color': color_int,
             'fields': [
-                {'name': 'Utilisateur', 'value': event.get('username', '?'), 'inline': True},
-                {'name': 'Tâche',       'value': event.get('task', '?'),     'inline': True},
-                {'name': 'Ressource',   'value': event.get('resource', '?'), 'inline': True},
-                {'name': 'Source',      'value': event.get('source', '?'),   'inline': False},
-                {'name': 'Type',        'value': violation.get('type', '?'), 'inline': True},
+                {'name': 'User',     'value': event.get('username', '?'), 'inline': True},
+                {'name': 'Task',     'value': event.get('task', '?'),     'inline': True},
+                {'name': 'Resource', 'value': event.get('resource', '?'), 'inline': True},
+                {'name': 'Source',   'value': event.get('source', '?'),   'inline': False},
+                {'name': 'Type',     'value': violation.get('type', '?'), 'inline': True},
             ],
             'footer': {'text': f'IDS Web | {data.get("detected_at", "")[:19].replace("T", " ")} UTC'},
         }]
@@ -256,16 +256,16 @@ def _send_teams(url: str, data: dict):
         '@type': 'MessageCard',
         '@context': 'http://schema.org/extensions',
         'themeColor': SEVERITY_COLOR.get(sev, '#666666').lstrip('#'),
-        'summary': f'IDS Alerte {sev.upper()}',
+        'summary': f'IDS Alert {sev.upper()}',
         'sections': [{
-            'activityTitle': f'IDS — Alerte {sev.upper()}',
+            'activityTitle': f'IDS — Alert {sev.upper()}',
             'activitySubtitle': violation.get('message', ''),
             'facts': [
-                {'name': 'Utilisateur', 'value': event.get('username', '?')},
-                {'name': 'Tâche',       'value': event.get('task', '?')},
-                {'name': 'Ressource',   'value': event.get('resource', '?')},
-                {'name': 'Source',      'value': event.get('source', '?')},
-                {'name': 'Type',        'value': violation.get('type', '?')},
+                {'name': 'User',     'value': event.get('username', '?')},
+                {'name': 'Task',     'value': event.get('task', '?')},
+                {'name': 'Resource', 'value': event.get('resource', '?')},
+                {'name': 'Source',   'value': event.get('source', '?')},
+                {'name': 'Type',     'value': violation.get('type', '?')},
             ],
         }]
     }

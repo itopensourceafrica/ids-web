@@ -92,7 +92,7 @@ def _check_patterns(event: dict, detect_rules: list) -> list:
             violations.append({
                 'type':    rule['pattern_name'],
                 'message': (f"[{rule['pattern_name']}] {rule['description']} "
-                            f"— user '{username}', {count} événements en "
+                            f"— user '{username}', {count} events in "
                             f"{rule['window_sec']}s"),
                 'severity': rule['severity'] or 'high',
             })
@@ -134,7 +134,7 @@ def _load_policy(app):
                     'threshold':    p.threshold,
                     'window_sec':   p.window_sec,
                     'severity':     p.severity or 'high',
-                    'description':  f"Pattern détecté",
+                    'description':  f"Pattern detected",
                 })
             else:
                 allow_deny.append({
@@ -171,7 +171,7 @@ def _check_event(event: dict, policies: list) -> dict | None:
     if source in ('file_integrity', 'linux/persistence'):
         return {
             'type':    'file_integrity',
-            'message': event.get('raw') or f"Modification détectée sur {resource}",
+            'message': event.get('raw') or f"Change detected on {resource}",
             'severity': 'critical',
         }
 
@@ -199,7 +199,7 @@ def _check_event(event: dict, policies: list) -> dict | None:
                 return None
             return {
                 'type':    'network_intrusion',
-                'message': f"Connexion entrante suspecte depuis {username} sur {resource} ({task})",
+                'message': f"Suspicious inbound connection from {username} on {resource} ({task})",
                 'severity': 'high',
             }
 
@@ -209,7 +209,7 @@ def _check_event(event: dict, policies: list) -> dict | None:
     if not user_rules:
         return {
             'type':    'user_unknown',
-            'message': f"Utilisateur '{username}' absent de la politique de sécurité",
+            'message': f"User '{username}' not in security policy",
             'severity': 'critical',
         }
 
@@ -235,8 +235,8 @@ def _check_event(event: dict, policies: list) -> dict | None:
     if task not in allowed_tasks:
         return {
             'type':    'unauthorized_access',
-            'message': (f"Utilisateur '{username}' n'a pas le droit d'effectuer "
-                        f"'{task}' sur '{resource}'"),
+            'message': (f"User '{username}' is not allowed to perform "
+                        f"'{task}' on '{resource}'"),
             'severity': 'critical',
         }
 

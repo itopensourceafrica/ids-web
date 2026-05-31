@@ -53,7 +53,7 @@ def analyze_access_entry(entry):
 
     user_known = any(p.user.username == entry.username for p in policies)
     if not user_known:
-        violation = "Utilisateur non authentifié dans la politique de sécurité"
+        violation = "User not authenticated in security policy"
         severity = 'critical'
     else:
         task_match = any(
@@ -63,10 +63,10 @@ def analyze_access_entry(entry):
             for p in policies
         )
         if task_match:
-            violation = "Date d'exécution hors de la plage autorisée"
+            violation = "Execution date outside the allowed range"
             severity = 'high'
         else:
-            violation = "Tâche ou ressource non autorisée pour cet utilisateur"
+            violation = "Task or resource not allowed for this user"
             severity = 'critical'
 
     intrusion = Intrusion(entry_id=entry.id, violation_type=violation)
@@ -74,12 +74,12 @@ def analyze_access_entry(entry):
     db.session.flush()
 
     db.session.add(Alert(
-        message=f"[IDS] {entry.username} | {entry.task} sur {entry.resource_name} | {violation}",
+        message=f"[IDS] {entry.username} | {entry.task} on {entry.resource_name} | {violation}",
         severity=severity
     ))
 
     print(
-        f"[IDS] INTRUSION DÉTECTÉE: {entry.username} | {entry.task} "
-        f"sur {entry.resource_name} | {violation}",
+        f"[IDS] INTRUSION DETECTED: {entry.username} | {entry.task} "
+        f"on {entry.resource_name} | {violation}",
         file=sys.stderr
     )

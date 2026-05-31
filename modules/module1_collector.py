@@ -489,14 +489,14 @@ class SysmonCollector(threading.Thread):
     SYSMON_CHANNEL = 'Microsoft-Windows-Sysmon/Operational'
 
     EVENT_MAP = {
-        1:  ('execute',         'system',          'Process créé'),
-        3:  ('network_access',  'network_scanner', 'Connexion réseau'),
-        7:  ('execute',         'system',          'DLL chargée'),
-        11: ('write',           'file_system',     'Fichier créé'),
-        12: ('write',           'registry',        'Clé registre modifiée'),
-        13: ('write',           'registry',        'Valeur registre modifiée'),
-        22: ('network_access',  'network_scanner', 'Requête DNS'),
-        25: ('execute',         'system',          'Process Tampering détecté'),
+        1:  ('execute',         'system',          'Process created'),
+        3:  ('network_access',  'network_scanner', 'Network connection'),
+        7:  ('execute',         'system',          'DLL loaded'),
+        11: ('write',           'file_system',     'File created'),
+        12: ('write',           'registry',        'Registry key modified'),
+        13: ('write',           'registry',        'Registry value modified'),
+        22: ('network_access',  'network_scanner', 'DNS query'),
+        25: ('execute',         'system',          'Process Tampering detected'),
     }
 
     # Process suspects souvent utilisés en post-exploitation
@@ -840,88 +840,88 @@ def _is_whitelisted(ip: str) -> bool:
 
 
 def _create_default_nids_rules(path: str):
-    """Crée nids_rules.conf avec des règles par défaut si absent."""
+    """Create nids_rules.conf with default rules if missing."""
     content = """\
 # ══════════════════════════════════════════════════════════════════════════════
-# IDS Web — Règles NIDS (Network Intrusion Detection System)
+# IDS Web — NIDS rules (Network Intrusion Detection System)
 #
-# Format règle  : alert;proto;port;payload_pattern;severity;description;resource
-# Format whitelist: whitelist;ip|net;valeur;description
+# Rule format    : alert;proto;port;payload_pattern;severity;description;resource
+# Whitelist format: whitelist;ip|net;value;description
 #
-# Champs :
+# Fields:
 #   proto          : tcp | udp | any
-#   port           : numéro de port ou 'any'
-#   payload_pattern: sous-chaîne à chercher (insensible à la casse), ou '-'
+#   port           : port number or 'any'
+#   payload_pattern: substring to look for (case-insensitive), or '-'
 #   severity       : critical | high | medium | low
-#   description    : texte libre
-#   resource       : (optionnel) nom de ressource IDS
+#   description    : free text
+#   resource       : (optional) IDS resource name
 #
-# Modifier ce fichier et recharger l'IDS — les règles s'appliquent à chaud.
+# Edit this file and reload the IDS — rules apply hot.
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── WHITELIST — IPs/réseaux autorisés (jamais alertés) ───────────────────────
-whitelist;ip;127.0.0.1;Loopback local
-whitelist;net;10.0.0.0/8;Réseau privé classe A
-whitelist;net;172.16.0.0/12;Réseau privé classe B
-whitelist;net;192.168.0.0/16;Réseau privé classe C
+# ── WHITELIST — allowed IPs/networks (never alerted) ─────────────────────────
+whitelist;ip;127.0.0.1;Local loopback
+whitelist;net;10.0.0.0/8;Class A private network
+whitelist;net;172.16.0.0/12;Class B private network
+whitelist;net;192.168.0.0/16;Class C private network
 
-# ── PORTS DANGEREUX — connexions suspectes ────────────────────────────────────
-alert;tcp;22;-;medium;Connexion SSH détectée;ssh_server
-alert;tcp;23;-;high;Telnet — protocole non chiffré;telnet_server
-alert;tcp;21;-;medium;FTP — protocole non chiffré;ftp_server
-alert;tcp;3389;-;high;Connexion RDP (Bureau à distance);rdp_server
-alert;tcp;5900;-;high;Connexion VNC;rdp_server
+# ── DANGEROUS PORTS — suspicious connections ─────────────────────────────────
+alert;tcp;22;-;medium;SSH connection detected;ssh_server
+alert;tcp;23;-;high;Telnet — unencrypted protocol;telnet_server
+alert;tcp;21;-;medium;FTP — unencrypted protocol;ftp_server
+alert;tcp;3389;-;high;RDP connection (Remote Desktop);rdp_server
+alert;tcp;5900;-;high;VNC connection;rdp_server
 
-# ── BASES DE DONNÉES EXPOSÉES ────────────────────────────────────────────────
-alert;tcp;3306;-;high;MySQL exposé sur le réseau;database
-alert;tcp;5432;-;high;PostgreSQL exposé sur le réseau;database
-alert;tcp;1433;-;high;MSSQL exposé sur le réseau;database
-alert;tcp;27017;-;high;MongoDB exposé (sans auth par défaut);database
-alert;tcp;6379;-;high;Redis exposé (sans auth par défaut);database
-alert;tcp;9200;-;high;Elasticsearch exposé;database
-alert;tcp;5984;-;medium;CouchDB exposé;database
+# ── EXPOSED DATABASES ────────────────────────────────────────────────────────
+alert;tcp;3306;-;high;MySQL exposed on network;database
+alert;tcp;5432;-;high;PostgreSQL exposed on network;database
+alert;tcp;1433;-;high;MSSQL exposed on network;database
+alert;tcp;27017;-;high;MongoDB exposed (no auth by default);database
+alert;tcp;6379;-;high;Redis exposed (no auth by default);database
+alert;tcp;9200;-;high;Elasticsearch exposed;database
+alert;tcp;5984;-;medium;CouchDB exposed;database
 
-# ── PARTAGE DE FICHIERS ───────────────────────────────────────────────────────
-alert;tcp;445;-;high;SMB — partage Windows (EternalBlue);file_system
+# ── FILE SHARING ─────────────────────────────────────────────────────────────
+alert;tcp;445;-;high;SMB — Windows share (EternalBlue);file_system
 alert;tcp;139;-;medium;NetBIOS;file_system
-alert;tcp;2049;-;medium;NFS exposé sur le réseau;file_system
+alert;tcp;2049;-;medium;NFS exposed on network;file_system
 
-# ── PORTS C2 ET REVERSE SHELLS ───────────────────────────────────────────────
-alert;tcp;4444;-;critical;Port Metasploit par défaut;network_scanner
-alert;tcp;4445;-;critical;Port reverse shell suspect;network_scanner
-alert;tcp;1337;-;critical;Port C2 suspect (leet);network_scanner
-alert;tcp;6666;-;critical;Port IRC/C2 suspect;network_scanner
-alert;tcp;6667;-;critical;Port IRC/C2 suspect;network_scanner
-alert;tcp;9001;-;critical;Port Tor/C2 suspect;network_scanner
-alert;tcp;8888;-;medium;Port non standard suspect;network_scanner
-alert;tcp;31337;-;critical;Port backdoor classique (élite);network_scanner
+# ── C2 PORTS AND REVERSE SHELLS ──────────────────────────────────────────────
+alert;tcp;4444;-;critical;Default Metasploit port;network_scanner
+alert;tcp;4445;-;critical;Suspicious reverse shell port;network_scanner
+alert;tcp;1337;-;critical;Suspicious C2 port (leet);network_scanner
+alert;tcp;6666;-;critical;Suspicious IRC/C2 port;network_scanner
+alert;tcp;6667;-;critical;Suspicious IRC/C2 port;network_scanner
+alert;tcp;9001;-;critical;Suspicious Tor/C2 port;network_scanner
+alert;tcp;8888;-;medium;Suspicious non-standard port;network_scanner
+alert;tcp;31337;-;critical;Classic backdoor port (elite);network_scanner
 
-# ── EMAIL ─────────────────────────────────────────────────────────────────────
-alert;tcp;25;-;medium;Connexion SMTP (relai possible);email_server
-alert;tcp;587;-;medium;Connexion SMTP avec auth;email_server
+# ── EMAIL ────────────────────────────────────────────────────────────────────
+alert;tcp;25;-;medium;SMTP connection (possible relay);email_server
+alert;tcp;587;-;medium;SMTP connection with auth;email_server
 
-# ── SIGNATURES PAYLOAD — détection par contenu ───────────────────────────────
+# ── PAYLOAD SIGNATURES — content-based detection ─────────────────────────────
 # SQL Injection
-alert;any;any;SELECT * FROM;critical;Injection SQL — SELECT *;database
-alert;any;any;UNION SELECT;critical;Injection SQL — UNION SELECT;database
-alert;any;any;DROP TABLE;critical;Injection SQL — DROP TABLE;database
-alert;any;any;INSERT INTO;high;Injection SQL — INSERT INTO;database
-alert;any;any;' OR '1'='1;critical;Injection SQL — bypass auth;database
-alert;any;any;1=1--;critical;Injection SQL — toujours vrai;database
+alert;any;any;SELECT * FROM;critical;SQL Injection — SELECT *;database
+alert;any;any;UNION SELECT;critical;SQL Injection — UNION SELECT;database
+alert;any;any;DROP TABLE;critical;SQL Injection — DROP TABLE;database
+alert;any;any;INSERT INTO;high;SQL Injection — INSERT INTO;database
+alert;any;any;' OR '1'='1;critical;SQL Injection — auth bypass;database
+alert;any;any;1=1--;critical;SQL Injection — always true;database
 
-# Shells et commandes
-alert;any;any;/bin/sh;critical;Tentative injection shell;system
-alert;any;any;/bin/bash;critical;Tentative injection bash;system
-alert;any;any;cmd.exe;critical;Tentative injection cmd Windows;system
-alert;any;any;powershell;high;Commande PowerShell dans payload;system
+# Shells and commands
+alert;any;any;/bin/sh;critical;Shell injection attempt;system
+alert;any;any;/bin/bash;critical;Bash injection attempt;system
+alert;any;any;cmd.exe;critical;Windows cmd injection attempt;system
+alert;any;any;powershell;high;PowerShell command in payload;system
 
-# Traversée de répertoires
-alert;any;any;../../../;high;Path traversal détecté;web_server
-alert;any;any;..\\..\\;high;Path traversal Windows détecté;web_server
+# Path traversal
+alert;any;any;../../../;high;Path traversal detected;web_server
+alert;any;any;..\\..\\;high;Windows path traversal detected;web_server
 
 # XSS
-alert;any;any;<script>;high;Tentative XSS — balise script;web_server
-alert;any;any;javascript:;high;Tentative XSS — javascript:;web_server
+alert;any;any;<script>;high;XSS attempt — script tag;web_server
+alert;any;any;javascript:;high;XSS attempt — javascript:;web_server
 """
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
