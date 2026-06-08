@@ -1,0 +1,35 @@
+# Secrets / config locale
+ids_config.json
+*.env
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.pem
+credentials*.json
+
+# Runtime / état
+instance/
+.events_cursor.json
+alerts/*.log
+alerts/*.log.gz
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# IDE / éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Claude
+.claude/

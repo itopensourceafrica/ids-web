@@ -1,0 +1,11 @@
+{
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": 587,
+    "user": "your-email@example.com",
+    "password": "your-smtp-password",
+    "from": "your-email@example.com",
+    "to": "recipient@example.com",
+    "tls": true
+  }
+}
