@@ -139,7 +139,7 @@ sudo -E python3 app.py
 powershell -ExecutionPolicy Bypass -File deploy\install-windows.ps1
 ```
 
-Le script vérifie Sysmon + npcap, installe les dépendances Python et génère les secrets.
+Le script vérifie Sysmon + npcap, copie l'application dans `C:\Program Files\IDS_Web`, installe les dépendances Python et génère la clé secrète Flask (`IDS_SECRET_KEY`, placée en variable d'environnement machine et sauvegardée dans `C:\Program Files\IDS_Web\.secrets.txt`). Il ne définit **pas** de mot de passe admin : la première connexion se fait avec `admin` / `admin`, à changer immédiatement via `/account/password`.
 
 #### Installation manuelle
 
@@ -181,7 +181,8 @@ http://localhost:5000
 | Méthode d'installation | Username | Password |
 |---|---|---|
 | Manuel Linux (sans `IDS_ADMIN_PASSWORD`) | `admin` | `admin` |
-| Script `./deploy/install-windows.ps1` | `admin` | mot de passe fort généré (ex. `V8GnqQc~!Wb.Tqg`) — affiché à la fin du script et sauvegardé dans `C:\Program Files\IDS_Web\.secrets.txt` |
+| Script `sudo ./deploy/install.sh` (Linux) | `admin` | mot de passe fort généré — affiché à la fin du script et sauvegardé dans `/opt/ids_web/.secrets` (mode 600) |
+| Script `deploy\install-windows.ps1` (Windows) | `admin` | `admin` — le script ne génère que la clé secrète Flask (`IDS_SECRET_KEY`), pas de mot de passe admin |
 | `IDS_ADMIN_PASSWORD` défini avant le 1er démarrage | `admin` | la valeur fournie |
 
 Le mot de passe doit être changé via **Compte → Mot de passe** après la première connexion.
@@ -1572,7 +1573,11 @@ Le script vérifie/installe :
 - **Sysmon** (équivalent auditd Windows) — manuel depuis https://docs.microsoft.com/sysinternals/downloads/sysmon
 - **npcap** (capture réseau scapy) — manuel depuis https://npcap.com/
 - Dépendances Python
-- Génère secrets aléatoires (stockés en variables d'environnement système)
+- Génère la clé secrète Flask `IDS_SECRET_KEY` (variable d'environnement machine + `C:\Program Files\IDS_Web\.secrets.txt`)
+
+> ⚠️ Contrairement à `deploy/install.sh` (Linux), ce script ne génère pas de mot de passe admin.
+> Les identifiants par défaut restent `admin` / `admin` — changez-les dès la première connexion via `/account/password`,
+> ou définissez `IDS_ADMIN_PASSWORD` avant le premier démarrage.
 
 Pour exécuter en service Windows, utiliser [NSSM](https://nssm.cc/) :
 
